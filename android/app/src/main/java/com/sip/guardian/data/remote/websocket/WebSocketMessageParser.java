@@ -1,5 +1,7 @@
 package com.sip.guardian.data.remote.websocket;
 
+import javax.inject.Inject;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -13,7 +15,12 @@ import com.sip.guardian.data.remote.dto.IncidentDto;
  */
 public class WebSocketMessageParser {
 
-    private final Gson gson = new Gson();
+    private final Gson gson;
+
+    @Inject
+    public WebSocketMessageParser() {
+        this.gson = new Gson();
+    }
 
     public WebSocketEvent parse(String text) {
         try {
