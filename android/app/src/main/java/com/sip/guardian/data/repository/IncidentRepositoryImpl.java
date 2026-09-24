@@ -21,14 +21,9 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-import io.reactivex.rxjava3.core.BackpressureStrategy;
 import io.reactivex.rxjava3.core.Flowable;
 import retrofit2.Response;
 
-/**
- * Network-first with local fallback; Room is the observable source of truth
- * (plan §27: cached data must remain viewable when Wi-Fi/backend disappear).
- */
 @Singleton
 public class IncidentRepositoryImpl implements IncidentRepository {
 
@@ -57,15 +52,15 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                     to != null ? to.toString() : null).execute();
             if (response.isSuccessful() && response.body() != null) {
                 List<IncidentDto> dtos = response.body().content;
-                dao.upsertAll(mapper.toEntities(dtos)); // refresh cache
+                dao.upsertAll(mapper.toEntities(dtos));
                 List<Incident> out = new ArrayList<>(dtos.size());
                 for (IncidentDto d : dtos) out.add(mapper.toDomain(d));
                 return out;
             }
         } catch (IOException ignored) {
-            // fall through to cache
+            // Fall through to cache.
         }
-        // Offline fallback: recent cached incidents (plan §27 edge cases)
+
         List<Incident> cached = new ArrayList<>();
         for (var e : dao.getRecent(size != null ? size : 50)) {
             cached.add(mapper.toDomain(mapper.toDto(e)));
@@ -83,7 +78,7 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                 return mapper.toDomain(dto);
             }
         } catch (IOException ignored) {
-            // fall through to cache
+            // Fall through to cache.
         }
         var entity = dao.getById(id);
         return entity == null ? null : mapper.toDomain(mapper.toDto(entity));
@@ -93,9 +88,8 @@ public class IncidentRepositoryImpl implements IncidentRepository {
     public Incident verifyIncident(String incidentId, HumanAnnotation annotation) {
         String verdict = annotation.getLabel() == HumanLabel.TRUE_POSITIVE
                 ? "VERIFIED" : "REJECTED";
-        VerificationRequest request =
-                new VerificationRequest(verdict, annotation.getLabel().name(),
-                        annotation.getNotes());
+        VerificationRequest request = new VerificationRequest(
+                verdict, annotation.getLabel().name(), annotation.getNotes());
         try {
             Response<IncidentDto> response =
                     api.verifyIncident(incidentId, request).execute();
@@ -104,8 +98,7 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                 dao.upsert(mapper.toEntity(dto));
                 return mapper.toDomain(dto);
             }
-            throw new IllegalStateException("Verification failed: HTTP "
-                    + response.code());
+            throw new IllegalStateException("Verification failed: HTTP " + response.code());
         } catch (IOException e) {
             throw new IllegalStateException("Verification failed: network error", e);
         }
@@ -118,14 +111,12 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                     List<Incident> out = new ArrayList<>(entities.size());
                     for (var e : entities) out.add(mapper.toDomain(mapper.toDto(e)));
                     return out;
-                })
-                .toFlowable(BackpressureStrategy.LATEST);
+                });
     }
 
     @Override
     public Flowable<Incident> observeIncidentById(String id) {
         return dao.observeById(id)
-                .map(e -> mapper.toDomain(mapper.toDto(e)))
-                .toFlowable(BackpressureStrategy.LATEST);
+                .map(e -> mapper.toDomain(mapper.toDto(e)));
     }
 }
