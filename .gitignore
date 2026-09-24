@@ -24,3 +24,6 @@ local.properties
 Thumbs.db
 *.swp
 *.swo
+
+# Local backups
+.backup-sip-android/

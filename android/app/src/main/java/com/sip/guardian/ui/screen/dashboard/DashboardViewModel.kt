@@ -1,12 +1,15 @@
 package com.sip.guardian.ui.screen.dashboard
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.sip.guardian.data.remote.api.SipApiService
 import com.sip.guardian.data.remote.dto.DashboardDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 data class DashboardUiState(
     val loading: Boolean = true,
@@ -21,13 +24,12 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(
     private val api: SipApiService,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState
 
     fun refresh() {
         _uiState.value = _uiState.value.copy(loading = true, error = null)
-        Thread {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val r = api.getDashboard().execute()
                 val body: DashboardDto? = if (r.isSuccessful) r.body() else null
@@ -41,12 +43,16 @@ class DashboardViewModel @Inject constructor(
                     )
                 } else {
                     _uiState.value = _uiState.value.copy(
-                        loading = false, error = "Backend unreachable — showing cached data")
+                        loading = false,
+                        error = "Backend unavailable",
+                    )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    loading = false, error = "Backend unreachable — showing cached data")
+                    loading = false,
+                    error = "Backend unavailable",
+                )
             }
-        }.start()
+        }
     }
 }

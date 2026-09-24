@@ -1,5 +1,6 @@
 package com.sip.guardian.data.local.entity;
 
+import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -12,6 +13,7 @@ import androidx.room.PrimaryKey;
 public class IncidentEntity {
 
     @PrimaryKey
+    @NonNull
     public String id;
     public String state;
     public String threatType;
