@@ -2,24 +2,16 @@ package com.sip.guardian.data.local;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
-
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import dagger.hilt.android.qualifiers.ApplicationContext;
 
-/**
- * AES-256-SIV + AES-256-GCM encrypted storage for JWT tokens (plan §26).
- * Never logs values. Pi/SSH/MQTT credentials are NOT stored here — the app
- * never possesses them.
- */
 @Singleton
 public class SecureTokenStore {
-
     private static final String FILE = "sip_tokens";
     private static final String KEY_ACCESS = "access_token";
     private static final String KEY_REFRESH = "refresh_token";
@@ -31,7 +23,7 @@ public class SecureTokenStore {
     private final SharedPreferences prefs;
 
     @Inject
-    public SecureTokenStore(Context context) {
+    public SecureTokenStore(@ApplicationContext Context context) {
         this.prefs = create(context);
     }
 
@@ -49,13 +41,15 @@ public class SecureTokenStore {
         }
     }
 
-    public synchronized void save(String accessToken, String refreshToken,
-                                  long expiresInSeconds) {
+    public synchronized void save(String accessToken, String refreshToken, long expiresInSeconds) {
+        if (accessToken == null || refreshToken == null) {
+            throw new IllegalArgumentException("Tokens must not be null");
+        }
         prefs.edit()
                 .putString(KEY_ACCESS, accessToken)
                 .putString(KEY_REFRESH, refreshToken)
                 .putLong(KEY_EXPIRES,
-                        System.currentTimeMillis() + expiresInSeconds * 1000)
+                        System.currentTimeMillis() + Math.max(0, expiresInSeconds) * 1000)
                 .apply();
     }
 
@@ -76,7 +70,7 @@ public class SecureTokenStore {
 
     public boolean isExpired() {
         long expiresAt = prefs.getLong(KEY_EXPIRES, 0);
-        return System.currentTimeMillis() >= expiresAt - 30_000; // 30s skew margin
+        return expiresAt == 0 || System.currentTimeMillis() >= expiresAt - 30_000;
     }
 
     public String getUserId() { return prefs.getString(KEY_USER_ID, null); }
