@@ -3,17 +3,18 @@ package com.sip.guardian.service;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 
 import com.sip.guardian.R;
-import com.sip.guardian.data.mapper.IncidentMapper;
 import com.sip.guardian.data.local.dao.IncidentDao;
+import com.sip.guardian.data.mapper.IncidentMapper;
 import com.sip.guardian.data.remote.websocket.SipWebSocketClient;
 import com.sip.guardian.data.remote.websocket.WebSocketEvent;
 
@@ -22,12 +23,9 @@ import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;
 
 /**
- * Foreground service holding the WebSocket while the app is in the foreground /
- * shortly after backgrounding (plan §27). It is deliberately NOT the sole
- * notification mechanism: when the process is killed, notification delivery is a
- * provider concern (local notifications now; FCM can be slotted in behind the
- * NotificationService abstraction) and missed events are reconciled via REST
- * when the app resumes.
+ * Foreground service holding the authenticated WebSocket while the app is active
+ * and for a bounded period after backgrounding. Missed events are reconciled via
+ * REST when the app resumes.
  */
 @AndroidEntryPoint
 public class WebSocketService extends Service {
@@ -61,14 +59,26 @@ public class WebSocketService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        createChannel();
         webSocketClient.addListener(listener);
-        startForeground(NOTIFICATION_ID, buildForegroundNotification("Monitoring…"));
+
+        Notification notification = buildForegroundNotification("Monitoring…");
+        int foregroundType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                : 0;
+        ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                foregroundType
+        );
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && intent.hasExtra(EXTRA_BASE_URL)) {
-            webSocketClient.connect(intent.getStringExtra(EXTRA_BASE_URL));
+        String baseUrl = intent != null ? intent.getStringExtra(EXTRA_BASE_URL) : null;
+        if (baseUrl != null && !baseUrl.trim().isEmpty()) {
+            webSocketClient.connect(baseUrl);
         }
         return START_STICKY;
     }
@@ -81,19 +91,35 @@ public class WebSocketService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
+    public void onTimeout(int startId, int fgsType) {
+        // Android 15 limits dataSync foreground-service runtime.
+        stopSelf(startId);
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 
     private Notification buildForegroundNotification(String text) {
-        createChannel();
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("SIP Guardian")
                 .setContentText(text)
                 .setOngoing(true)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .build();
     }
 
-    static void createChannel() {
-        // no-op pre-O; channel created in NotificationService on first call
+    private void createChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) {
+            nm.createNotificationChannel(new NotificationChannel(
+                    CHANNEL_ID,
+                    "Incidents",
+                    NotificationManager.IMPORTANCE_HIGH
+            ));
+        }
     }
 }
