@@ -40,18 +40,17 @@ jobs:
         working-directory: android
         run: gradle wrapper --gradle-version 8.9 --distribution-type bin
 
-      - name: Build debug APK
+      - name: Build and test
         working-directory: android
         env:
           SIP_API_BASE_URL: "http://10.0.2.2:8080/"
         run: ./gradlew --no-daemon clean testDebugUnitTest assembleDebug
 
-      - name: Package source
+      - name: Package source with wrapper
         run: |
           rm -rf package
-          mkdir -p package
-          git archive --format=zip --output=package/SIP-Android-hardened.zip HEAD
-          cp android/gradle/wrapper/gradle-wrapper.jar package/gradle-wrapper.jar || true
+          mkdir package
+          zip -r package/SIP-Android-hardened.zip .             -x ".git/*"                ".gradle/*"                "*/build/*"                "package/*"                "*.hprof"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
