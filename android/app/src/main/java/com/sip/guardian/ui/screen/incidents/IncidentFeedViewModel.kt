@@ -1,14 +1,17 @@
 package com.sip.guardian.ui.screen.incidents
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.sip.guardian.domain.model.Incident
 import com.sip.guardian.domain.model.IncidentState
 import com.sip.guardian.domain.model.ThreatType
 import com.sip.guardian.domain.usecase.GetIncidentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 data class FeedUiState(
     val loading: Boolean = true,
@@ -22,7 +25,6 @@ data class FeedUiState(
 class IncidentFeedViewModel @Inject constructor(
     private val getIncidents: GetIncidentsUseCase,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(FeedUiState())
     val uiState: StateFlow<FeedUiState> = _uiState
 
@@ -30,8 +32,8 @@ class IncidentFeedViewModel @Inject constructor(
 
     fun refresh() {
         val s = _uiState.value
-        _uiState.value = s.copy(loading = true)
-        Thread {
+        _uiState.value = s.copy(loading = true, offline = false)
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val incidents = getIncidents.execute(
                     0, 50, s.stateFilter, s.typeFilter, null, null, null)
@@ -41,10 +43,10 @@ class IncidentFeedViewModel @Inject constructor(
                     stateFilter = s.stateFilter,
                     typeFilter = s.typeFilter,
                 )
-            } catch (e: Exception) {
-                _uiState.value = s.copy(loading = false, offline = true)
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(loading = false, offline = true)
             }
-        }.start()
+        }
     }
 
     fun setStateFilter(state: IncidentState?) {
