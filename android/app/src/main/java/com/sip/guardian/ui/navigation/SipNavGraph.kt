@@ -1,11 +1,14 @@
 package com.sip.guardian.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,7 +26,11 @@ private val topLevel = listOf(
 )
 
 @Composable
-fun SipNavGraph(navController: NavHostController, startDestination: String) {
+fun SipNavGraph(
+    navController: NavHostController,
+    startDestination: String,
+    onAuthenticated: () -> Unit = {},
+) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showNavigation = currentRoute != SipNavDestination.Login.route &&
@@ -45,7 +52,7 @@ fun SipNavGraph(navController: NavHostController, startDestination: String) {
                                     }
                                 }
                             },
-                            icon = { Text(if (destination == SipNavDestination.Dashboard) "⌂" else "!" ) },
+                            icon = { Text(if (destination == SipNavDestination.Dashboard) "⌂" else "!") },
                             label = {
                                 Text(if (destination == SipNavDestination.Dashboard) "Dashboard" else "Incidents")
                             },
@@ -61,20 +68,19 @@ fun SipNavGraph(navController: NavHostController, startDestination: String) {
         ) {
             composable(SipNavDestination.Login.route) {
                 LoginScreen(onLoggedIn = {
+                    onAuthenticated()
                     navController.navigate(SipNavDestination.Dashboard.route) {
                         popUpTo(SipNavDestination.Login.route) { inclusive = true }
                     }
                 })
             }
             composable(SipNavDestination.Dashboard.route) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.ui.Modifier.padding(padding)
-                ) { DashboardScreen() }
+                Box(modifier = Modifier.padding(padding)) {
+                    DashboardScreen()
+                }
             }
             composable(SipNavDestination.IncidentFeed.route) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.ui.Modifier.padding(padding)
-                ) {
+                Box(modifier = Modifier.padding(padding)) {
                     IncidentFeedScreen(onIncidentClick = { id ->
                         navController.navigate(SipNavDestination.IncidentDetail.createRoute(id))
                     })
