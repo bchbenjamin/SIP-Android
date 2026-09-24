@@ -5,6 +5,7 @@ import com.sip.guardian.data.remote.api.SipApiService;
 import com.sip.guardian.data.remote.interceptor.AuthInterceptor;
 import com.sip.guardian.data.remote.interceptor.TokenRefreshAuthenticator;
 import java.util.concurrent.TimeUnit;
+import javax.inject.Named;
 import javax.inject.Singleton;
 import dagger.Module;
 import dagger.Provides;
@@ -23,9 +24,8 @@ public class NetworkModule {
 
     @Provides
     @Singleton
-    OkHttpClient provideOkHttpClient(
-            AuthInterceptor authInterceptor,
-            TokenRefreshAuthenticator authenticator) {
+    OkHttpClient provideOkHttpClient(AuthInterceptor authInterceptor,
+                                     TokenRefreshAuthenticator authenticator) {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(com.sip.guardian.BuildConfig.DEBUG
                 ? HttpLoggingInterceptor.Level.BASIC
@@ -42,7 +42,7 @@ public class NetworkModule {
 
     @Provides
     @Singleton
-    @dagger.hilt.android.qualifiers.ApplicationContext
+    @Named("unauthenticated")
     OkHttpClient provideUnauthenticatedOkHttpClient() {
         return new OkHttpClient.Builder()
                 .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -69,8 +69,7 @@ public class NetworkModule {
 
     @Provides
     @Singleton
-    AuthApiService provideAuthApi(
-            @dagger.hilt.android.qualifiers.ApplicationContext OkHttpClient client) {
+    AuthApiService provideAuthApi(@Named("unauthenticated") OkHttpClient client) {
         return new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(client)
