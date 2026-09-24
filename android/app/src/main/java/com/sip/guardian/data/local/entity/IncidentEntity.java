@@ -1,5 +1,6 @@
 package com.sip.guardian.data.local.entity;
 
+import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -12,6 +13,7 @@ import androidx.room.PrimaryKey;
 public class IncidentEntity {
 
     @PrimaryKey
+    @NonNull
     public String id;
     public String state;
     public String threatType;
@@ -26,9 +28,9 @@ public class IncidentEntity {
     public long updatedAtEpochMs;
 
     // JSON columns
-    public String evidenceJson;     // EvidenceDto serialized
-    public String detectionJson;    // DetectionDto serialized
-    public String annotationsJson;  // List<AnnotationDto> serialized
+    public String evidenceJson;
+    public String detectionJson;
+    public String annotationsJson;
 
     public boolean requiresVerification() {
         return "PENDING_VERIFICATION".equals(state);
