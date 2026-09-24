@@ -36,6 +36,8 @@ fun IncidentDetailScreen(
     val state by viewModel.uiState.collectAsState()
     var notes by remember { mutableStateOf("") }
 
+    val incident = state.incident
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -44,12 +46,11 @@ fun IncidentDetailScreen(
 
         when {
             state.loading -> CircularProgressIndicator()
-            state.incident == null -> Text(
+            incident == null -> Text(
                 state.error ?: "Incident unavailable",
                 color = MaterialTheme.colorScheme.error,
             )
             else -> {
-                val incident = state.incident
                 ThreatBadge(incident.threat.type)
                 Text(
                     incident.threat.description.ifEmpty { "Incident " + incident.id },
