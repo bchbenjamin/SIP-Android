@@ -77,6 +77,9 @@ public class WebSocketService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String baseUrl = intent != null ? intent.getStringExtra(EXTRA_BASE_URL) : null;
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            baseUrl = BuildConfig.API_BASE_URL;
+        }
         if (baseUrl != null && !baseUrl.trim().isEmpty()) {
             webSocketClient.connect(baseUrl);
         }
