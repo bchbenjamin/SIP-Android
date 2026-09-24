@@ -2,14 +2,17 @@ package com.sip.guardian.ui.screen.incidents
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.sip.guardian.domain.model.HumanLabel
 import com.sip.guardian.domain.model.Incident
 import com.sip.guardian.domain.repository.IncidentRepository
 import com.sip.guardian.domain.usecase.VerifyIncidentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 data class IncidentDetailUiState(
     val loading: Boolean = true,
@@ -33,7 +36,7 @@ class IncidentDetailViewModel @Inject constructor(
 
     fun refresh() {
         _uiState.value = _uiState.value.copy(loading = true, error = null)
-        Thread {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val incident = repository.getIncidentById(incidentId)
                 _uiState.value = if (incident == null) {
@@ -47,12 +50,12 @@ class IncidentDetailViewModel @Inject constructor(
                     error = e.message ?: "Unable to load incident",
                 )
             }
-        }.start()
+        }
     }
 
     fun verify(label: HumanLabel, notes: String) {
         _uiState.value = _uiState.value.copy(submitting = true, error = null)
-        Thread {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = verifyIncident.execute(incidentId, label, notes)
                 _uiState.value = if (result.isSuccess) {
@@ -73,6 +76,6 @@ class IncidentDetailViewModel @Inject constructor(
                     error = e.message ?: "Verification failed",
                 )
             }
-        }.start()
+        }
     }
 }
