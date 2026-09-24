@@ -2,10 +2,10 @@ package com.sip.guardian.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
-import androidx.navigation.NavHost
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.navigation.NavType
 import com.sip.guardian.ui.screen.auth.LoginScreen
 import com.sip.guardian.ui.screen.dashboard.DashboardScreen
 import com.sip.guardian.ui.screen.incidents.IncidentDetailScreen
