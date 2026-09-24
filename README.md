@@ -1,34 +1,56 @@
-# SIP Guardian — Implementation
+# SIP Guardian — Android
 
-Implementation of `implementation_plan.md`: AI-Powered Street Safety Device Network.
+Android control and monitoring client for the **AI-Powered Street Safety Device Network** (`ASIP_127` / `24UTAI13`).
 
 ## Layout
 
 ```
 sip-guardian/
 ├── android/   # Android app — Java domain/data, Kotlin Compose UI
-├── gateway/   # Spring Boot gateway (MQTT ↔ REST/WebSocket bridge)
-├── pi/        # Raspberry Pi MQTT + evidence upload integration
+├── CONTEXT/   # Project context and implementation plan
 └── docs/      # Status and integration notes
 ```
 
-## Increment Coverage (plan §28)
+The gateway and Raspberry Pi components are part of the overall project plan but are not contained in this repository yet.
 
-| Increment | Status | Location |
-|---|---|---|
-| 1 Shell + navigation | Implemented | `android/` (theme, nav graph, screens, Login) |
-| 2 Domain models + Room | Implemented | `android/.../domain`, `data/local` |
-| 3 Gateway + REST API | Implemented | `gateway/` (controllers, services, JWT, schema.sql) |
-| 4 Network layer + repos | Implemented | `android/.../data` (Retrofit, WS client, repo impls) |
-| 5 Dashboard + Feed | Implemented | `android/.../ui/screen/dashboard`, `incidents` |
-| 6 Incident detail + evidence | Implemented | `IncidentDetailScreen`, `EvidenceViewer` |
-| 7 Verification + training data | Implemented | `VerifyIncidentUseCase`, annotation flow, gateway verify endpoint |
-| 8 WebSocket real-time | Implemented | `SipWebSocketClient`, `WebSocketService`, broadcaster |
-| 9 Autopilot + nodes | Implemented | `AutopilotScreen`, `AutopilotPolicy.isAuthorizedFor` |
-| 10 Pi integration | Code ready — requires live Pi | `pi/` (publisher, subscriber, uploader, systemd) |
+## Current Android coverage
 
-## Credential handling (.env)
+| Area | Status |
+|---|---|
+| Compose shell + navigation | Implemented |
+| Login + encrypted token storage | Implemented |
+| Domain models + incident state machine | Implemented |
+| Room local cache | Implemented |
+| Retrofit/OkHttp + authenticated WebSocket client | Implemented |
+| Dashboard + incident feed + filters | Implemented |
+| Incident detail + operator verification UI | Implemented |
+| Foreground WebSocket service + local notifications | Implemented |
+| Unit tests for core state/policy/WebSocket parsing | Implemented |
+| Evidence viewer / media timeline | Not yet implemented |
+| Node map | Not yet implemented |
+| Autopilot policy UI | Not yet implemented |
+| Event history | Not yet implemented |
+| Settings | Not yet implemented |
+| FCM delivery | Not yet implemented |
+| Gateway / Pi integration | Not yet implemented in this repository |
 
-`IP_ADDRESS`, `USERNAME`, `PASSWORD` are used **only** by dev tooling (`pi/deploy.sh`)
-via `set -a; source .env`. They are never read by the Android app, never committed,
-never printed. See `pi/README.md`.
+## Configuration
+
+The Android build gets its API base URL from the Gradle property or environment variable:
+
+```bash
+./gradlew assembleDebug -PSIP_API_BASE_URL=http://<gateway-host>:<port>/
+```
+
+For local development, `.env.example` documents the variables used by Pi/deployment tooling. The Android app does **not** read Pi SSH credentials from `.env`.
+
+## Build
+
+CI uses JDK 17 and Gradle 8.9:
+
+```bash
+cd android
+gradle clean testDebugUnitTest assembleDebug
+```
+
+See `docs/IMPLEMENTATION_STATUS.md` for the detailed state against the implementation plan.
