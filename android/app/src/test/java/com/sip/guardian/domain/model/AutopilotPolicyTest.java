@@ -17,10 +17,10 @@ public class AutopilotPolicyTest {
                 AutopilotState.ENABLED,
                 null);
         assertFalse(policy.isAuthorizedFor(
-                new Threat(ThreatType.WEAPON, ThreatSeverity.CRITICAL, "weapon"),
+                new Threat(ThreatType.WEAPON, ThreatSeverity.NON_DETERRABLE, "weapon"),
                 0.99));
         assertTrue(policy.isAuthorizedFor(
-                new Threat(ThreatType.LOITERING, ThreatSeverity.LOW, "loitering"),
+                new Threat(ThreatType.LOITERING, ThreatSeverity.DETERRABLE, "loitering"),
                 0.95));
     }
 }
