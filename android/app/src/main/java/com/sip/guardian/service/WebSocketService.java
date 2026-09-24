@@ -12,6 +12,7 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
 
+import com.sip.guardian.BuildConfig;
 import com.sip.guardian.R;
 import com.sip.guardian.data.local.dao.IncidentDao;
 import com.sip.guardian.data.mapper.IncidentMapper;
