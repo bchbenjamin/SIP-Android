@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.Map;
 
+import dagger.hilt.android.qualifiers.ApplicationContext;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -25,7 +26,7 @@ public class DatasetRepositoryImpl implements DatasetRepository {
     private final File exportDir;
 
     @Inject
-    public DatasetRepositoryImpl(SipApiService api, Context context) {
+    public DatasetRepositoryImpl(SipApiService api, @ApplicationContext Context context) {
         this.api = api;
         this.exportDir = context.getExternalFilesDir("exports");
         if (exportDir != null) exportDir.mkdirs();

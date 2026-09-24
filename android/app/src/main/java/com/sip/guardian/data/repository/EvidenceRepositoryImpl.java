@@ -12,6 +12,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import dagger.hilt.android.qualifiers.ApplicationContext;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import okhttp3.ResponseBody;
@@ -31,7 +32,7 @@ public class EvidenceRepositoryImpl implements EvidenceRepository {
     private final File cacheDir;
 
     @Inject
-    public EvidenceRepositoryImpl(SipApiService api, Context context) {
+    public EvidenceRepositoryImpl(SipApiService api, @ApplicationContext Context context) {
         this.api = api;
         this.cacheDir = new File(context.getCacheDir(), "evidence");
         //noinspection ResultOfMethodCallIgnored

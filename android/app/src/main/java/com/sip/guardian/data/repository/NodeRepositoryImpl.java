@@ -81,15 +81,21 @@ public class NodeRepositoryImpl implements NodeRepository {
         AutopilotPolicy policy = AutopilotPolicy.disabled();
         return new Node(dto.nodeId, dto.name,
                 new Location(dto.latitude, dto.longitude, "", 0),
-                dto.status != null ? NodeStatus.valueOf(dto.status) : NodeStatus.UNKNOWN,
+                safeStatus(dto.status),
                 dto.lastHeartbeat != null ? Instant.parse(dto.lastHeartbeat) : null,
                 dto.batteryLevel, dto.firmwareVersion, policy);
+    }
+
+    private static NodeStatus safeStatus(String value) {
+        if (value == null) return NodeStatus.UNKNOWN;
+        try { return NodeStatus.valueOf(value); }
+        catch (IllegalArgumentException ignored) { return NodeStatus.UNKNOWN; }
     }
 
     private Node toDomain(NodeEntity e) {
         return new Node(e.nodeId, e.name,
                 new Location(e.latitude, e.longitude, "", 0),
-                e.status != null ? NodeStatus.valueOf(e.status) : NodeStatus.UNKNOWN,
+                safeStatus(e.status),
                 e.lastHeartbeatEpochMs > 0
                         ? Instant.ofEpochMilli(e.lastHeartbeatEpochMs) : null,
                 e.batteryLevel, e.firmwareVersion, AutopilotPolicy.disabled());

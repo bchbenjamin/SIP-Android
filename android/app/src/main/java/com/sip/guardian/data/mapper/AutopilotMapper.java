@@ -17,7 +17,9 @@ public class AutopilotMapper {
     public AutopilotPolicy toDomain(AutopilotPolicyDto dto) {
         Set<ThreatType> allowed = dto.allowedThreatTypes != null
                 ? dto.allowedThreatTypes.stream()
-                    .map(ThreatType::valueOf).collect(Collectors.toCollection(() -> EnumSet.noneOf(ThreatType.class)))
+                    .map(AutopilotMapper::safeThreatType)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(ThreatType.class)))
                 : EnumSet.noneOf(ThreatType.class);
         Set<ThreatType> alwaysEscalate = dto.alwaysEscalateTypes != null
                 ? dto.alwaysEscalateTypes.stream()
@@ -34,9 +36,20 @@ public class AutopilotMapper {
                         dto.maxDeterrenceAttempts, alwaysEscalate),
                 new SafetyConstraints(dto.requireMinimumConfidence,
                         dto.requireMultiModalConfirmation, neverAutonomous),
-                dto.syncState != null
-                        ? AutopilotState.valueOf(dto.syncState) : AutopilotState.DISABLED,
+                safeAutopilotState(dto.syncState),
                 dto.lastSyncTimestamp != null ? Instant.parse(dto.lastSyncTimestamp) : null);
+    }
+
+    private static ThreatType safeThreatType(String value) {
+        if (value == null) return null;
+        try { return ThreatType.valueOf(value); }
+        catch (IllegalArgumentException ignored) { return null; }
+    }
+
+    private static AutopilotState safeAutopilotState(String value) {
+        if (value == null) return AutopilotState.DISABLED;
+        try { return AutopilotState.valueOf(value); }
+        catch (IllegalArgumentException ignored) { return AutopilotState.DISABLED; }
     }
 
     public AutopilotPolicyDto toDto(AutopilotPolicy p) {

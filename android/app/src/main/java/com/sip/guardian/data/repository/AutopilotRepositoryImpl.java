@@ -38,7 +38,7 @@ public class AutopilotRepositoryImpl implements AutopilotRepository {
     public AutopilotPolicy updatePolicy(String nodeId, AutopilotPolicy policy) {
         try {
             Response<AutopilotPolicyDto> r =
-                    api.updateAutopilotPolicy(mapper.toDto(policy)).execute();
+                    api.updateAutopilotPolicy(nodeId, mapper.toDto(policy)).execute();
             if (r.isSuccessful() && r.body() != null) return mapper.toDomain(r.body());
             throw new IllegalStateException("Policy update failed: HTTP " + r.code());
         } catch (IOException e) {

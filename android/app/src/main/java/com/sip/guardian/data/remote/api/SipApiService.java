@@ -58,7 +58,9 @@ public interface SipApiService {
     Call<AutopilotPolicyDto> getAutopilotPolicy(@Query("nodeId") String nodeId);
 
     @PUT("api/v1/autopilot/policy")
-    Call<AutopilotPolicyDto> updateAutopilotPolicy(@Body AutopilotPolicyDto policy);
+    Call<AutopilotPolicyDto> updateAutopilotPolicy(
+            @Query("nodeId") String nodeId,
+            @Body AutopilotPolicyDto policy);
 
     @GET("api/v1/dashboard")
     Call<DashboardDto> getDashboard();

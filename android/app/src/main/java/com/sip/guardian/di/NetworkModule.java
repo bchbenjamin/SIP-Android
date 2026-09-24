@@ -4,11 +4,9 @@ import com.sip.guardian.data.remote.api.AuthApiService;
 import com.sip.guardian.data.remote.api.SipApiService;
 import com.sip.guardian.data.remote.interceptor.AuthInterceptor;
 import com.sip.guardian.data.remote.interceptor.TokenRefreshAuthenticator;
-
 import java.util.concurrent.TimeUnit;
-
+import javax.inject.Named;
 import javax.inject.Singleton;
-
 import dagger.Module;
 import dagger.Provides;
 import dagger.hilt.InstallIn;
@@ -21,7 +19,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 @Module
 @InstallIn(SingletonComponent.class)
 public class NetworkModule {
-
     private static final String BASE_URL = com.sip.guardian.BuildConfig.API_BASE_URL;
     private static final long TIMEOUT_SECONDS = 20;
 
@@ -30,7 +27,9 @@ public class NetworkModule {
     OkHttpClient provideOkHttpClient(AuthInterceptor authInterceptor,
                                      TokenRefreshAuthenticator authenticator) {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BASIC); // headers redact auth
+        logging.setLevel(com.sip.guardian.BuildConfig.DEBUG
+                ? HttpLoggingInterceptor.Level.BASIC
+                : HttpLoggingInterceptor.Level.NONE);
         return new OkHttpClient.Builder()
                 .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -38,6 +37,17 @@ public class NetworkModule {
                 .addInterceptor(authInterceptor)
                 .authenticator(authenticator)
                 .addInterceptor(logging)
+                .build();
+    }
+
+    @Provides
+    @Singleton
+    @Named("unauthenticated")
+    OkHttpClient provideUnauthenticatedOkHttpClient() {
+        return new OkHttpClient.Builder()
+                .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .build();
     }
 
@@ -59,7 +69,12 @@ public class NetworkModule {
 
     @Provides
     @Singleton
-    AuthApiService provideAuthApi(Retrofit retrofit) {
-        return retrofit.create(AuthApiService.class);
+    AuthApiService provideAuthApi(@Named("unauthenticated") OkHttpClient client) {
+        return new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+                .create(AuthApiService.class);
     }
 }
