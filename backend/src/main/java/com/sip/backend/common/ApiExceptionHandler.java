@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -65,6 +66,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiError> illegalState(IllegalStateException ex, HttpServletRequest req) {
         return handle(HttpStatus.CONFLICT, "INVALID_STATE_TRANSITION", ex.getMessage(), req, requestId(req));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> responseStatus(ResponseStatusException ex, HttpServletRequest req) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        String message = status.is5xxServerError()
+                ? "The requested service is not currently available"
+                : (ex.getReason() != null ? ex.getReason() : status.getReasonPhrase());
+        String code = status == HttpStatus.NOT_IMPLEMENTED ? "FEATURE_NOT_IMPLEMENTED" : "REQUEST_FAILED";
+        return handle(status, code, message, req, requestId(req));
     }
 
     @ExceptionHandler(Exception.class)
