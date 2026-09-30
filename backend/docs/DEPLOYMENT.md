@@ -1,79 +1,53 @@
-# Deployment Guide
+# SIP Backend Deployment
 
-## Local Development
+## Local development
 
-`ash
+Requirements: JDK 17 and a working Gradle 8.9 wrapper.
+
+Create a private environment file from the example, then export its values into the shell (Spring Boot does not automatically load `.env`):
+
+```bash
+cd backend
 cp .env.example .env
-# Fill in DATABASE_URL and JWT_SECRET in .env
-
+set -a
+source .env
+set +a
+./gradlew clean test
 ./gradlew bootRun
-`
+```
 
-The backend runs on http://localhost:8080. Flyway applies migrations automatically.
+The API listens on `http://localhost:8080`; health is available at `/actuator/health`. Flyway migrations run on startup. Do not use real production secrets in a shared shell history or CI logs.
 
-## Docker Compose (local full stack)
+## Neon PostgreSQL
 
-`yaml
-version: '3.9'
-services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: sipdb
-      POSTGRES_USER: sipuser
-      POSTGRES_PASSWORD: devpassword
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+1. Create a Neon project and a development branch.
+2. Copy the PostgreSQL connection details from Neon.
+3. Set `DATABASE_URL` to a JDBC URL, not the Neon management API key. Ensure TLS is enabled.
+4. URL-encode reserved characters in username/password values.
 
-  backend:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      DATABASE_URL: jdbc:postgresql://db:5432/sipdb
-      DATABASE_USERNAME: sipuser
-      DATABASE_PASSWORD: devpassword
-      JWT_SECRET: your-secret-key-at-least-32-characters-long
-    depends_on:
-      - db
+Example shape:
 
-volumes:
-  pgdata:
-`
+```text
+DATABASE_URL=jdbc:postgresql://HOST/DATABASE?user=USERNAME&password=URL_ENCODED_PASSWORD&sslmode=require
+```
 
-## Neon PostgreSQL Setup
+Keep this value private. Test migrations on a disposable Neon branch before applying them to a database containing important data.
 
-1. Create a project at [Neon](https://neon.tech)
-2. Create a development branch
-3. Copy the connection string from the dashboard
-4. Set DATABASE_URL in your .env or deployment config
+## First administrator
 
-`ash
-# Example DATABASE_URL
-DATABASE_URL=jdbc:postgresql://user:password@ep-xxx-123456.us-east-2.aws.neon.tech/sipdb?sslmode=require
-`
+There are no default login credentials. Before the first backend startup, optionally set both `SIP_BOOTSTRAP_ADMIN_USERNAME` and `SIP_BOOTSTRAP_ADMIN_PASSWORD`; the password must be at least 12 characters. After the administrator is created, remove these environment variables. The bootstrap will not change an existing user's role or password.
 
-## Render (staging)
+## Deployment checklist
 
-1. Create a Web Service
-2. Set build command: ./gradlew bootJar
-3. Set start command: java -jar build/libs/sip-backend-0.1.0.jar
-4. Add environment variables:
-   - DATABASE_URL (Neon development branch)
-   - JWT_SECRET (generate with openssl rand -base64 64)
+- Use HTTPS and WSS.
+- Configure a strong unique `JWT_SECRET` (at least 32 bytes).
+- Configure `DATABASE_URL` privately; do not put it in Android or commit it.
+- Restrict network access to the backend and database where possible.
+- Configure health checks and logs without secrets.
+- Verify Flyway migration state and backup/restore procedures.
+- Do not advertise evidence media as available until an object-storage provider is configured.
+- Do not consider Raspberry Pi integration complete until node authentication, MQTT ingestion, heartbeat handling, deduplication and end-to-end tests are implemented.
 
-> **Note:** Render free tier spins down after 15 min of inactivity. Use a paid plan or always-on host for production.
+## CI
 
-## Environment Variables Reference
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| DATABASE_URL | Yes | — | Full JDBC connection string |
-| DATABASE_USERNAME | No | sipuser | Override DB username |
-| DATABASE_PASSWORD | No | — | Override DB password |
-| JWT_SECRET | Yes | — | JWT signing key (min 32 chars) |
-| JWT_ACCESS_EXPIRY | No | 900 | Access token TTL in seconds |
-| JWT_REFRESH_EXPIRY | No | 604800 | Refresh token TTL in seconds |
-| SERVER_PORT | No | 8080 | HTTP server port |
+The backend workflow runs `gradle clean test bootJar` on JDK 17. Locally, use `./gradlew clean test bootJar`.
