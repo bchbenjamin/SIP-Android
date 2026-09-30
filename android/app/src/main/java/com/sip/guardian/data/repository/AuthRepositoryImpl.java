@@ -62,9 +62,12 @@ public class AuthRepositoryImpl implements AuthRepository {
     @Override
     public void logout() {
         String accessToken = tokenStore.getAccessToken();
+        String refreshToken = tokenStore.getRefreshToken();
         try {
-            if (accessToken != null) {
-                authApi.logout("Bearer " + accessToken).execute();
+            if (accessToken != null || refreshToken != null) {
+                Map<String, String> body = refreshToken != null
+                        ? Map.of("refreshToken", refreshToken) : Map.of();
+                authApi.logout(accessToken != null ? "Bearer " + accessToken : null, body).execute();
             }
         } catch (IOException | RuntimeException ignored) {
             // Always clear local credentials even if the backend is unreachable.
