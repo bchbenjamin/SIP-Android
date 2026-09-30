@@ -21,19 +21,11 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 import okio.ByteString;
 
-/**
- * Persistent WebSocket to the gateway with exponential-backoff reconnect
- * (1s -> 2s -> 4s -> ... -> 30s cap) per plan §10/§27.
- *
- * Auth: token is sent as a Sec-WebSocket-Protocol-style handshake header
- * ("Authorization: Bearer ...") instead of a URL query param, per plan §14.
- */
+/** Authenticated WebSocket client with bounded exponential-backoff reconnect. */
 @Singleton
 public class SipWebSocketClient {
 
-    public interface Listener {
-        void onEvent(WebSocketEvent event);
-    }
+    public interface Listener { void onEvent(WebSocketEvent event); }
 
     private static final long MIN_BACKOFF_MS = 1_000;
     private static final long MAX_BACKOFF_MS = 30_000;
@@ -45,53 +37,73 @@ public class SipWebSocketClient {
     private final List<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean stopped = new AtomicBoolean(true);
+    private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
 
     private volatile WebSocket webSocket;
+    private volatile String currentBaseUrl;
     private volatile long backoffMs = MIN_BACKOFF_MS;
 
     @Inject
-    public SipWebSocketClient(OkHttpClient okHttpClient,
-                              SecureTokenStore tokenStore,
+    public SipWebSocketClient(OkHttpClient okHttpClient, SecureTokenStore tokenStore,
                               WebSocketMessageParser parser) {
         this.okHttpClient = okHttpClient;
         this.tokenStore = tokenStore;
         this.parser = parser;
     }
 
-    public void addListener(Listener listener) { listeners.add(listener); }
+    public void addListener(Listener listener) { if (listener != null) listeners.addIfAbsent(listener); }
     public void removeListener(Listener listener) { listeners.remove(listener); }
 
     public synchronized void connect(String baseUrl) {
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            emit(new WebSocketEvent.OnConnectionStateChanged(
+                    WebSocketEvent.ConnectionState.FAILED, "Backend URL is empty"));
+            return;
+        }
+        if (!stopped.get() && baseUrl.equals(currentBaseUrl) && webSocket != null) return;
+
+        stopped.set(true);
+        handler.removeCallbacksAndMessages(null);
+        reconnectScheduled.set(false);
+        WebSocket old = webSocket;
+        webSocket = null;
+        if (old != null) old.cancel();
+
+        currentBaseUrl = baseUrl.trim();
+        backoffMs = MIN_BACKOFF_MS;
         stopped.set(false);
-        openSocket(baseUrl);
+        openSocket(currentBaseUrl);
     }
 
     public synchronized void disconnect() {
         stopped.set(true);
+        currentBaseUrl = null;
         handler.removeCallbacksAndMessages(null);
-        if (webSocket != null) {
-            webSocket.close(1000, "client disconnect");
-            webSocket = null;
-        }
+        reconnectScheduled.set(false);
+        WebSocket current = webSocket;
+        webSocket = null;
+        if (current != null) current.close(1000, "client disconnect");
         emit(new WebSocketEvent.OnConnectionStateChanged(
                 WebSocketEvent.ConnectionState.DISCONNECTED, "manual"));
     }
 
     public boolean send(String json) {
-        WebSocket ws = webSocket;
-        return ws != null && ws.send(json);
+        WebSocket current = webSocket;
+        return current != null && current.send(json);
     }
 
     private void openSocket(String baseUrl) {
+        if (stopped.get() || !baseUrl.equals(currentBaseUrl)) return;
         String token = tokenStore.getAccessToken();
         if (token == null) {
+            emit(new WebSocketEvent.OnConnectionStateChanged(
+                    WebSocketEvent.ConnectionState.FAILED, "No valid access token"));
             scheduleReconnect(baseUrl);
             return;
         }
 
-        // ws(s)://host/ws/events derived from the REST base URL; token via header, NOT URL.
-        String wsUrl = baseUrl.replace("https://", "wss://")
-                              .replace("http://", "ws://");
+        String wsUrl = baseUrl.replaceFirst("^https://", "wss://")
+                .replaceFirst("^http://", "ws://");
         if (!wsUrl.endsWith("/")) wsUrl += "/";
         wsUrl += "ws/events";
 
@@ -103,74 +115,90 @@ public class SipWebSocketClient {
         emit(new WebSocketEvent.OnConnectionStateChanged(
                 WebSocketEvent.ConnectionState.CONNECTING, null));
 
-        webSocket = okHttpClient.newWebSocket(request, new WebSocketListener() {
+        WebSocket created = okHttpClient.newWebSocket(request, new WebSocketListener() {
             @Override
-            public void onOpen(WebSocket webSocket, Response response) {
+            public void onOpen(WebSocket socket, Response response) {
+                if (stopped.get() || !baseUrl.equals(currentBaseUrl) || webSocket != socket) {
+                    socket.close(1000, "stale connection");
+                    return;
+                }
                 backoffMs = MIN_BACKOFF_MS;
-                subscribe(webSocket, Set.of("incidents", "nodes"));
+                reconnectScheduled.set(false);
+                subscribe(socket, Set.of("incidents", "nodes"));
                 emit(new WebSocketEvent.OnConnectionStateChanged(
                         WebSocketEvent.ConnectionState.CONNECTED, null));
             }
 
             @Override
-            public void onMessage(WebSocket webSocket, String text) {
+            public void onMessage(WebSocket socket, String text) {
+                if (socket != webSocket) return;
                 WebSocketEvent event = parser.parse(text);
                 if (event != null) emit(event);
             }
 
             @Override
-            public void onMessage(WebSocket webSocket, ByteString bytes) {
-                onMessage(webSocket, bytes.utf8());
+            public void onMessage(WebSocket socket, ByteString bytes) {
+                onMessage(socket, bytes.utf8());
             }
 
             @Override
-            public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+            public void onFailure(WebSocket socket, Throwable t, Response response) {
+                if (socket != webSocket) return;
+                webSocket = null;
                 emit(new WebSocketEvent.OnConnectionStateChanged(
                         WebSocketEvent.ConnectionState.FAILED,
-                        t == null ? "unknown" : t.getMessage()));
+                        t == null ? "WebSocket connection failed" : t.getMessage()));
                 scheduleReconnect(baseUrl);
             }
 
             @Override
-            public void onClosing(WebSocket webSocket, int code, String reason) {
-                webSocket.close(code, reason);
+            public void onClosing(WebSocket socket, int code, String reason) {
+                socket.close(code, reason);
             }
 
             @Override
-            public void onClosed(WebSocket webSocket, int code, String reason) {
-                if (!stopped.get()) {
+            public void onClosed(WebSocket socket, int code, String reason) {
+                if (socket != webSocket) return;
+                webSocket = null;
+                if (!stopped.get() && baseUrl.equals(currentBaseUrl)) {
                     emit(new WebSocketEvent.OnConnectionStateChanged(
                             WebSocketEvent.ConnectionState.DISCONNECTED, reason));
                     scheduleReconnect(baseUrl);
                 }
             }
         });
+        webSocket = created;
     }
 
-    private void subscribe(WebSocket ws, Set<String> channels) {
-        ws.send("{\"type\":\"SUBSCRIBE\",\"payload\":{\"channels\":["
+    private void subscribe(WebSocket socket, Set<String> channels) {
+        socket.send("{\"type\":\"SUBSCRIBE\",\"payload\":{\"channels\":["
                 + joinQuoted(channels) + "]}}");
     }
 
     private static String joinQuoted(Set<String> values) {
         StringBuilder sb = new StringBuilder();
-        for (String v : values) {
+        for (String value : values) {
             if (sb.length() > 0) sb.append(',');
-            sb.append('"').append(v).append('"');
+            sb.append('"').append(value).append('"');
         }
         return sb.toString();
     }
 
     private void scheduleReconnect(String baseUrl) {
-        if (stopped.get()) return;
+        if (stopped.get() || !baseUrl.equals(currentBaseUrl)
+                || !reconnectScheduled.compareAndSet(false, true)) return;
         final long delay = backoffMs;
         backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
         handler.postDelayed(() -> {
-            if (!stopped.get()) openSocket(baseUrl);
+            reconnectScheduled.set(false);
+            if (!stopped.get() && baseUrl.equals(currentBaseUrl)) openSocket(baseUrl);
         }, TimeUnit.MILLISECONDS.toMillis(delay));
     }
 
     private void emit(WebSocketEvent event) {
-        for (Listener l : listeners) l.onEvent(event);
+        for (Listener listener : listeners) {
+            try { listener.onEvent(event); }
+            catch (RuntimeException ignored) { /* A listener must not break socket delivery. */ }
+        }
     }
 }
