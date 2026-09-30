@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @Service
 public class RefreshTokenService {
-
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
 
@@ -35,17 +34,21 @@ public class RefreshTokenService {
         rt.tokenHash = hash(tokenValue);
         rt.expiresAt = OffsetDateTime.now().plusSeconds(jwtProperties.getRefreshTokenExpirySeconds());
         rt.rawToken = tokenValue;
-
         return refreshTokenRepository.save(rt);
     }
 
     @Transactional
     public RefreshToken validateAndConsume(String tokenValue) {
         if (tokenValue == null || tokenValue.isBlank()) return null;
-        RefreshToken rt = refreshTokenRepository.findByTokenHash(hash(tokenValue)).orElse(null);
+        String tokenHash = hash(tokenValue);
+        RefreshToken rt = refreshTokenRepository.findByTokenHash(tokenHash).orElse(null);
         if (rt == null || !rt.isValid()) return null;
-        rt.revokedAt = OffsetDateTime.now();
-        return refreshTokenRepository.save(rt);
+
+        // Conditional update makes rotation one-time even when two requests race.
+        OffsetDateTime now = OffsetDateTime.now();
+        if (refreshTokenRepository.consumeIfValid(tokenHash, now) != 1) return null;
+        rt.revokedAt = now;
+        return rt;
     }
 
     @Transactional
