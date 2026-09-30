@@ -15,6 +15,10 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Stri
     List<RefreshToken> findByUserAndRevokedAtIsNull(User user);
 
     @Modifying
+    @Query("UPDATE RefreshToken r SET r.revokedAt = :now WHERE r.tokenHash = :tokenHash AND r.revokedAt IS NULL AND r.expiresAt > :now")
+    int consumeIfValid(String tokenHash, OffsetDateTime now);
+
+    @Modifying
     @Query("UPDATE RefreshToken r SET r.revokedAt = :now WHERE r.user.id = :userId AND r.revokedAt IS NULL")
     int revokeAllForUser(String userId, OffsetDateTime now);
 
