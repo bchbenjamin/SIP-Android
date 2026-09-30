@@ -18,5 +18,5 @@ public interface AuthApiService {
     Call<LoginResponse> refresh(@Body Map<String, String> body);
 
     @POST("api/v1/auth/logout")
-    Call<Void> logout(@Header("Authorization") String authorization);
+    Call<Void> logout(@Header("Authorization") String authorization, @Body Map<String, String> body);
 }
