@@ -4,10 +4,17 @@ import android.os.Handler;
 import android.os.Looper;
 
 import com.sip.guardian.data.local.SecureTokenStore;
+import com.sip.guardian.data.remote.api.AuthApiService;
+import com.sip.guardian.data.remote.dto.LoginResponse;
+
+import java.io.IOException;
+import java.util.Map;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -33,11 +40,18 @@ public class SipWebSocketClient {
 
     private final OkHttpClient okHttpClient;
     private final SecureTokenStore tokenStore;
+    private final AuthApiService authApi;
     private final WebSocketMessageParser parser;
+    private final ExecutorService refreshExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "sip-token-refresh");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean stopped = new AtomicBoolean(true);
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
+    private final AtomicBoolean refreshInProgress = new AtomicBoolean(false);
 
     private volatile WebSocket webSocket;
     private volatile String currentBaseUrl;
@@ -45,9 +59,10 @@ public class SipWebSocketClient {
 
     @Inject
     public SipWebSocketClient(OkHttpClient okHttpClient, SecureTokenStore tokenStore,
-                              WebSocketMessageParser parser) {
+                              AuthApiService authApi, WebSocketMessageParser parser) {
         this.okHttpClient = okHttpClient;
         this.tokenStore = tokenStore;
+        this.authApi = authApi;
         this.parser = parser;
     }
 
@@ -96,9 +111,7 @@ public class SipWebSocketClient {
         if (stopped.get() || !baseUrl.equals(currentBaseUrl)) return;
         String token = tokenStore.getAccessToken();
         if (token == null) {
-            emit(new WebSocketEvent.OnConnectionStateChanged(
-                    WebSocketEvent.ConnectionState.FAILED, "No valid access token"));
-            scheduleReconnect(baseUrl);
+            refreshTokenThenReconnect();
             return;
         }
 
@@ -168,6 +181,57 @@ public class SipWebSocketClient {
             }
         });
         webSocket = created;
+    }
+
+    /**
+     * A WebSocket handshake does not run the OkHttp HTTP authenticator. Refresh the access
+     * token explicitly when it is expired, without blocking the main thread.
+     */
+    private void refreshTokenThenReconnect() {
+        if (!refreshInProgress.compareAndSet(false, true)) return;
+        String refreshToken = tokenStore.getRefreshToken();
+        if (refreshToken == null || refreshToken.isBlank()) {
+            refreshInProgress.set(false);
+            emit(new WebSocketEvent.OnConnectionStateChanged(
+                    WebSocketEvent.ConnectionState.FAILED, "Session expired. Please sign in again."));
+            return;
+        }
+
+        refreshExecutor.execute(() -> {
+            boolean retry = false;
+            try {
+                retrofit2.Response<LoginResponse> response =
+                        authApi.refresh(Map.of("refreshToken", refreshToken)).execute();
+                LoginResponse tokens = response.body();
+                if (response.isSuccessful() && tokens != null
+                        && tokens.token != null && tokens.refreshToken != null
+                        && tokens.expiresIn > 0) {
+                    tokenStore.save(tokens.token, tokens.refreshToken, tokens.expiresIn);
+                    handler.post(() -> {
+                        refreshInProgress.set(false);
+                        String target = currentBaseUrl;
+                        if (!stopped.get() && target != null) openSocket(target);
+                    });
+                    return;
+                }
+                retry = response.code() >= 500 || response.code() == 429;
+                if (!retry) tokenStore.clear();
+            } catch (IOException e) {
+                retry = true;
+            } catch (RuntimeException e) {
+                retry = false;
+                tokenStore.clear();
+            }
+
+            refreshInProgress.set(false);
+            if (retry) {
+                String target = currentBaseUrl;
+                if (!stopped.get() && target != null) scheduleReconnect(target);
+            } else {
+                emit(new WebSocketEvent.OnConnectionStateChanged(
+                        WebSocketEvent.ConnectionState.FAILED, "Session expired. Please sign in again."));
+            }
+        });
     }
 
     private void subscribe(WebSocket socket, Set<String> channels) {
