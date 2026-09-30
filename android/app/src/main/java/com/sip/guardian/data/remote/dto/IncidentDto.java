@@ -1,23 +1,40 @@
 package com.sip.guardian.data.remote.dto;
 
 import com.google.gson.annotations.SerializedName;
-
 import java.util.List;
 
-/** Wire format for an incident (plan §13). */
+/** Accepts both the original Android wire model and the backend's canonical DTO shape. */
 public class IncidentDto {
     public String id;
     public String state;
+
+    // Canonical backend fields (the nested threat/location fields below remain supported).
+    public String threatType;
+    public String threatSeverity;
+    public String threatDescription;
+    public Double latitude;
+    public Double longitude;
+    public String locationReadable;
+    public Double locationAccuracy;
+    public String nodeName;
+
     public ThreatDto threat;
     public LocationDto location;
     public EvidenceDto evidence;
     public DetectionDto detection;
     public List<AnnotationDto> annotations;
     public List<ResponseEventDto> responseEvents;
+    public DetailDto detail;
     public String nodeId;
-    @SerializedName("created_at") public String createdAt;
-    @SerializedName("updated_at") public String updatedAt;
+    @SerializedName(value = "created_at", alternate = {"createdAt"}) public String createdAt;
+    @SerializedName(value = "updated_at", alternate = {"updatedAt"}) public String updatedAt;
     public boolean autopilotHandled;
+
+    public static class DetailDto {
+        public List<EvidenceDto> evidence;
+        public List<AnnotationDto> annotations;
+        public List<ResponseEventDto> responseEvents;
+    }
 
     public static class ThreatDto {
         public String type;
@@ -33,6 +50,7 @@ public class IncidentDto {
     }
 
     public static class EvidenceDto {
+        public String id;
         public String imageUrl;
         public String videoUrl;
         public String audioUrl;
@@ -40,6 +58,12 @@ public class IncidentDto {
         public String captureTimestamp;
         public String retentionExpiry;
         public boolean pendingUpload;
+        public String type;
+        public String storageKey;
+        public String mimeType;
+        public Long sizeBytes;
+        public String sha256;
+        public String uploadStatus;
     }
 
     public static class DetectionDto {
