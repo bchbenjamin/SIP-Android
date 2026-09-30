@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: ["master", "agent/hardened-release"]
+    branches: ["master", "agent/hardened-release", "agent/backend-hardening"]
   pull_request:
     branches: ["master"]
 
@@ -42,7 +42,8 @@ jobs:
         run: |
           rm -rf package
           mkdir package
-          zip -r package/SIP-Android-hardened.zip .             -x ".git/*" ".gradle/*" "*/build/*" "package/*" "*.hprof"
+          zip -r package/SIP-Android-hardened.zip . \
+            -x ".git/*" ".gradle/*" "*/build/*" "package/*" "*.hprof"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
