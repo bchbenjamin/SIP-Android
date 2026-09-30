@@ -47,7 +47,7 @@ public class Incident {
     public OffsetDateTime updatedAt;
 
     public enum IncidentState {
-        DETECTED, PENDING_VERIFICATION, VERIFIED, REJECTED, ESCALATED, RESOLVED
+        DETECTED, EVIDENCE_CAPTURED, PENDING_VERIFICATION, AUTONOMOUS_EVALUATION, AUTO_HANDLED, VERIFIED, REJECTED, DETERRENCE_ACTIVE, DETERRENCE_COMPLETED, ESCALATED, RESOLVED
     }
 
     public enum ThreatType {
@@ -55,7 +55,7 @@ public class Incident {
     }
 
     public enum ThreatSeverity {
-        LOW, MEDIUM, HIGH, NON_DETERRABLE
+        DETERRABLE, NON_DETERRABLE
     }
 
     @PrePersist
