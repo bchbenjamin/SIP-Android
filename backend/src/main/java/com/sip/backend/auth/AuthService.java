@@ -72,6 +72,11 @@ public class AuthService {
         );
     }
 
+    public void logoutRefreshToken(String refreshToken) {
+        // Opaque refresh tokens are high entropy; invalid tokens intentionally remain a no-op.
+        refreshTokenService.validateAndConsume(refreshToken);
+    }
+
     @Transactional
     public void logout(String userId) {
         refreshTokenService.revokeAllForUser(userId);
