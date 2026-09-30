@@ -39,7 +39,7 @@ Returns a new access token and a new refresh token. The submitted refresh token 
 
 ### POST `/api/v1/auth/logout`
 
-Requires a valid access token. Revokes all refresh tokens belonging to the authenticated user and returns `204 No Content`.
+Accepts an optional `{"refreshToken":"<opaque-refresh-token>"}` body. When supplied, revokes that refresh token even if the access token has expired. With no refresh token, a valid access token revokes all refresh sessions for that user. Returns `204 No Content`.
 
 ## Operational endpoints
 
