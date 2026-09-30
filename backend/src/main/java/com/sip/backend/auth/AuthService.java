@@ -48,6 +48,7 @@ public class AuthService {
         return response(user, refreshToken);
     }
 
+    @Transactional
     public LoginResponse refresh(RefreshRequest request) {
         var consumed = refreshTokenService.validateAndConsume(request.refreshToken);
         if (consumed == null) {
