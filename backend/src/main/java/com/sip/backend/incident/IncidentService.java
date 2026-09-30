@@ -50,15 +50,22 @@ public class IncidentService {
     public PageDto<IncidentDto> getIncidents(
             Integer page, Integer size, String state, String threatType,
             String nodeId, String from, String to) {
-        PageRequest pr = PageRequest.of(
-                page != null ? page : 0,
-                size != null ? size : 50,
+        int pageIndex = page != null ? page : 0;
+        int pageSize = size != null ? size : 50;
+        if (pageIndex < 0) throw new IllegalArgumentException("page must be zero or greater");
+        if (pageSize < 1 || pageSize > 100) {
+            throw new IllegalArgumentException("size must be between 1 and 100");
+        }
+        PageRequest pr = PageRequest.of(pageIndex, pageSize,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Incident.IncidentState stateFilter = parseEnum(state, Incident.IncidentState.class, null);
         Incident.ThreatType typeFilter = parseEnum(threatType, Incident.ThreatType.class, null);
         OffsetDateTime fromDt = parseOffsetDateTime(from);
         OffsetDateTime toDt = parseOffsetDateTime(to);
+        if (fromDt != null && toDt != null && fromDt.isAfter(toDt)) {
+            throw new IllegalArgumentException("from must be earlier than or equal to to");
+        }
 
         Page<Incident> result = incidentRepository.search(stateFilter, nodeId, typeFilter, fromDt, toDt, pr);
         List<IncidentDto> dtos = result.getContent().stream().map(mapper::toDto).toList();
@@ -158,7 +165,7 @@ public class IncidentService {
         try {
             return Enum.valueOf(clazz, value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return defaultValue;
+            throw new IllegalArgumentException("Invalid " + clazz.getSimpleName() + " filter: " + value);
         }
     }
 
@@ -167,7 +174,7 @@ public class IncidentService {
         try {
             return OffsetDateTime.parse(value);
         } catch (Exception e) {
-            return null;
+            throw new IllegalArgumentException("Invalid ISO-8601 datetime: " + value);
         }
     }
 }
