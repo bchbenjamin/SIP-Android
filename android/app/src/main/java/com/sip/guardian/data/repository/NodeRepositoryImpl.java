@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -40,14 +39,19 @@ public class NodeRepositoryImpl implements NodeRepository {
                 List<NodeEntity> entities = new ArrayList<>();
                 List<Node> out = new ArrayList<>();
                 for (NodeDto dto : response.body()) {
+                    if (dto == null || dto.nodeId == null || dto.nodeId.isBlank()) continue;
                     entities.add(toEntity(dto));
                     out.add(toDomain(dto));
                 }
                 dao.upsertAll(entities);
                 return out;
             }
-        } catch (IOException ignored) { }
-        // offline fallback
+        } catch (IOException ignored) {
+            // Use the last known cache when the backend cannot be reached.
+        } catch (RuntimeException ignored) {
+            // Malformed individual API data should not crash the dashboard.
+        }
+
         List<Node> cached = new ArrayList<>();
         for (NodeEntity e : dao.getAll()) cached.add(toDomain(e));
         return cached;
@@ -55,35 +59,42 @@ public class NodeRepositoryImpl implements NodeRepository {
 
     @Override
     public Node getNodeById(String nodeId) {
+        if (nodeId == null) return null;
         for (Node n : getNodes()) {
-            if (n.getNodeId().equals(nodeId)) return n;
+            if (nodeId.equals(n.getNodeId())) return n;
         }
         return null;
     }
 
-    private static NodeEntity toEntity(NodeDto dto) {
+    private NodeEntity toEntity(NodeDto dto) {
         NodeEntity e = new NodeEntity();
         e.nodeId = dto.nodeId;
         e.name = dto.name;
         e.status = dto.status;
         e.latitude = dto.latitude;
         e.longitude = dto.longitude;
-        e.lastHeartbeatEpochMs = dto.lastHeartbeat != null
-                ? Instant.parse(dto.lastHeartbeat).toEpochMilli() : 0;
+        e.lastHeartbeatEpochMs = parseInstant(dto.lastHeartbeat) != null
+                ? parseInstant(dto.lastHeartbeat).toEpochMilli() : 0;
         e.batteryLevel = dto.batteryLevel;
         e.firmwareVersion = dto.firmwareVersion;
-        e.policyJson = dto.autopilotPolicy != null
-                ? new Gson().toJson(dto.autopilotPolicy) : null;
+        e.policyJson = dto.autopilotPolicy != null ? gson.toJson(dto.autopilotPolicy) : null;
         return e;
     }
 
     private Node toDomain(NodeDto dto) {
-        AutopilotPolicy policy = AutopilotPolicy.disabled();
         return new Node(dto.nodeId, dto.name,
                 new Location(dto.latitude, dto.longitude, "", 0),
-                safeStatus(dto.status),
-                dto.lastHeartbeat != null ? Instant.parse(dto.lastHeartbeat) : null,
-                dto.batteryLevel, dto.firmwareVersion, policy);
+                safeStatus(dto.status), parseInstant(dto.lastHeartbeat),
+                dto.batteryLevel, dto.firmwareVersion, AutopilotPolicy.disabled());
+    }
+
+    private static Instant parseInstant(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return Instant.parse(value); }
+        catch (RuntimeException ignored) {
+            try { return java.time.OffsetDateTime.parse(value).toInstant(); }
+            catch (RuntimeException ignoredAgain) { return null; }
+        }
     }
 
     private static NodeStatus safeStatus(String value) {
@@ -94,10 +105,8 @@ public class NodeRepositoryImpl implements NodeRepository {
 
     private Node toDomain(NodeEntity e) {
         return new Node(e.nodeId, e.name,
-                new Location(e.latitude, e.longitude, "", 0),
-                safeStatus(e.status),
-                e.lastHeartbeatEpochMs > 0
-                        ? Instant.ofEpochMilli(e.lastHeartbeatEpochMs) : null,
+                new Location(e.latitude, e.longitude, "", 0), safeStatus(e.status),
+                e.lastHeartbeatEpochMs > 0 ? Instant.ofEpochMilli(e.lastHeartbeatEpochMs) : null,
                 e.batteryLevel, e.firmwareVersion, AutopilotPolicy.disabled());
     }
 }
