@@ -2,14 +2,14 @@ package com.sip.backend.incident;
 
 import com.sip.backend.dto.*;
 import com.sip.backend.entity.*;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
+
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class IncidentMapper {
-
     private static final ObjectMapper OM = new ObjectMapper();
 
     public IncidentDto toDto(Incident incident) {
@@ -92,7 +92,7 @@ public class IncidentMapper {
     private List<String> parseJsonArray(String json) {
         if (json == null || json.isBlank()) return List.of();
         try {
-            return OM.readTree(json).findValuesAsText("");
+            return OM.readValue(json, new TypeReference<List<String>>() {});
         } catch (Exception e) {
             return List.of();
         }
