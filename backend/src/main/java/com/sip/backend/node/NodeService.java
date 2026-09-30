@@ -4,6 +4,7 @@ import com.sip.backend.common.ResourceNotFoundException;
 import com.sip.backend.dto.NodeDto;
 import com.sip.backend.entity.Node;
 import com.sip.backend.repository.NodeRepository;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;

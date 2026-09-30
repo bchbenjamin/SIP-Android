@@ -7,8 +7,8 @@ import com.sip.backend.repository.AutopilotPolicyRepository;
 import com.sip.backend.repository.NodeRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -27,6 +27,9 @@ public class AutopilotService {
 
     @Transactional(readOnly = true)
     public AutopilotPolicyDto getPolicy(String nodeId) {
+        if (!nodeRepository.existsById(nodeId)) {
+            throw new ResourceNotFoundException("NODE_NOT_FOUND", "Node not found: " + nodeId);
+        }
         AutopilotPolicy policy = policyRepository.findById(nodeId).orElse(null);
         if (policy == null) {
             policy = new AutopilotPolicy();
@@ -50,6 +53,17 @@ public class AutopilotService {
     public AutopilotPolicyDto updatePolicy(String nodeId, AutopilotPolicyDto dto) {
         if (!nodeRepository.existsById(nodeId)) {
             throw new ResourceNotFoundException("NODE_NOT_FOUND", "Node not found: " + nodeId);
+        }
+        if (dto == null) throw new IllegalArgumentException("Policy body is required");
+        if (dto.confidenceThreshold != null
+                && (dto.confidenceThreshold < 0.0 || dto.confidenceThreshold > 1.0)) {
+            throw new IllegalArgumentException("confidenceThreshold must be between 0 and 1");
+        }
+        if (dto.deterrenceTimeoutSeconds != null && dto.deterrenceTimeoutSeconds < 1) {
+            throw new IllegalArgumentException("deterrenceTimeoutSeconds must be positive");
+        }
+        if (dto.maxDeterrenceAttempts != null && dto.maxDeterrenceAttempts < 1) {
+            throw new IllegalArgumentException("maxDeterrenceAttempts must be positive");
         }
 
         AutopilotPolicy policy = policyRepository.findById(nodeId).orElse(new AutopilotPolicy());
