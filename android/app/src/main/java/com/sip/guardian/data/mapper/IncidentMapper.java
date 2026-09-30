@@ -21,36 +21,39 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import javax.inject.Inject;
 
-/** DTO ↔ Entity ↔ Domain mapping. Pure functions, no I/O. */
+/** DTO ↔ Entity ↔ Domain mapping. Supports legacy nested and current backend DTOs. */
 public class IncidentMapper {
-
     private final Gson gson = new Gson();
 
     @Inject
     public IncidentMapper() {}
 
-    // ---------- DTO -> Domain ----------
-
     public Incident toDomain(IncidentDto dto) {
         Threat threat = new Threat(
-                safeEnum(ThreatType.class, dto.threat != null ? dto.threat.type : null, ThreatType.UNKNOWN),
-                safeEnum(ThreatSeverity.class, dto.threat != null ? dto.threat.severity : null, ThreatSeverity.DETERRABLE),
-                dto.threat != null ? dto.threat.description : "");
+                safeEnum(ThreatType.class, dto.threat != null ? dto.threat.type : dto.threatType,
+                        ThreatType.UNKNOWN),
+                safeEnum(ThreatSeverity.class,
+                        dto.threat != null ? dto.threat.severity : dto.threatSeverity,
+                        ThreatSeverity.DETERRABLE),
+                safe(dto.threat != null ? dto.threat.description : dto.threatDescription));
 
-        Location location = dto.location != null
-                ? new Location(dto.location.latitude, dto.location.longitude,
-                               dto.location.humanReadable, dto.location.accuracy)
-                : null;
+        Location location = null;
+        if (dto.location != null) {
+            location = new Location(dto.location.latitude, dto.location.longitude,
+                    dto.location.humanReadable, dto.location.accuracy);
+        } else if (dto.latitude != null || dto.longitude != null) {
+            location = new Location(dto.latitude != null ? dto.latitude : 0.0,
+                    dto.longitude != null ? dto.longitude : 0.0,
+                    dto.locationReadable, dto.locationAccuracy != null ? dto.locationAccuracy : 0.0);
+        }
 
         EvidenceBundle evidence = dto.evidence != null
                 ? new EvidenceBundle(dto.evidence.imageUrl, dto.evidence.videoUrl,
                         dto.evidence.audioUrl, dto.evidence.thumbnailUrl,
                         parseInstant(dto.evidence.captureTimestamp),
-                        parseInstant(dto.evidence.retentionExpiry),
-                        dto.evidence.pendingUpload)
+                        parseInstant(dto.evidence.retentionExpiry), dto.evidence.pendingUpload)
                 : null;
 
         DetectionResult detection = dto.detection != null
@@ -61,49 +64,52 @@ public class IncidentMapper {
                         Collections.emptyMap())
                 : null;
 
+        List<IncidentDto.AnnotationDto> annotationDtos = dto.annotations != null ? dto.annotations
+                : dto.detail != null ? dto.detail.annotations : null;
         List<HumanAnnotation> annotations = new ArrayList<>();
-        if (dto.annotations != null) {
-            for (IncidentDto.AnnotationDto a : dto.annotations) {
+        if (annotationDtos != null) {
+            for (IncidentDto.AnnotationDto a : annotationDtos) {
                 annotations.add(new HumanAnnotation(a.id,
                         safeEnum(HumanLabel.class, a.label, HumanLabel.UNCERTAIN),
                         a.annotatorId, parseInstant(a.timestamp), a.notes, a.confidence, a.version));
             }
         }
 
+        List<IncidentDto.ResponseEventDto> responseDtos = dto.responseEvents != null ? dto.responseEvents
+                : dto.detail != null ? dto.detail.responseEvents : null;
         List<ResponseEvent> responses = new ArrayList<>();
-        if (dto.responseEvents != null) {
-            for (IncidentDto.ResponseEventDto r : dto.responseEvents) {
+        if (responseDtos != null) {
+            for (IncidentDto.ResponseEventDto r : responseDtos) {
                 responses.add(new ResponseEvent(r.id,
                         safeEnum(DeterrenceType.class, r.actionType, DeterrenceType.COMBINED),
                         parseInstant(r.timestamp), r.result, r.autonomous));
             }
         }
 
-        return new Incident(dto.id, threat, location, evidence, detection, annotations,
-                responses, safeEnum(IncidentState.class, dto.state, IncidentState.DETECTED),
-                dto.nodeId, parseInstant(dto.createdAt), dto.autopilotHandled,
-                parseInstant(dto.updatedAt));
+        return new Incident(dto.id, threat, location, evidence, detection, annotations, responses,
+                safeEnum(IncidentState.class, dto.state, IncidentState.DETECTED),
+                dto.nodeId, parseInstant(dto.createdAt), dto.autopilotHandled, parseInstant(dto.updatedAt));
     }
-
-    // ---------- DTO -> Entity ----------
 
     public IncidentEntity toEntity(IncidentDto dto) {
         IncidentEntity e = new IncidentEntity();
         e.id = dto.id;
         e.state = dto.state;
-        e.threatType = dto.threat != null ? dto.threat.type : null;
-        e.threatSeverity = dto.threat != null ? dto.threat.severity : null;
-        e.threatDescription = dto.threat != null ? dto.threat.description : null;
-        e.latitude = dto.location != null ? dto.location.latitude : 0;
-        e.longitude = dto.location != null ? dto.location.longitude : 0;
-        e.locationReadable = dto.location != null ? dto.location.humanReadable : null;
+        e.threatType = dto.threat != null ? dto.threat.type : dto.threatType;
+        e.threatSeverity = dto.threat != null ? dto.threat.severity : dto.threatSeverity;
+        e.threatDescription = dto.threat != null ? dto.threat.description : dto.threatDescription;
+        e.latitude = dto.location != null ? dto.location.latitude : dto.latitude != null ? dto.latitude : 0.0;
+        e.longitude = dto.location != null ? dto.location.longitude : dto.longitude != null ? dto.longitude : 0.0;
+        e.locationReadable = dto.location != null ? dto.location.humanReadable : dto.locationReadable;
         e.nodeId = dto.nodeId;
         e.autopilotHandled = dto.autopilotHandled;
         e.createdAtEpochMs = toEpochMs(dto.createdAt);
         e.updatedAtEpochMs = toEpochMs(dto.updatedAt);
         e.evidenceJson = dto.evidence != null ? gson.toJson(dto.evidence) : null;
         e.detectionJson = dto.detection != null ? gson.toJson(dto.detection) : null;
-        e.annotationsJson = dto.annotations != null ? gson.toJson(dto.annotations) : null;
+        List<IncidentDto.AnnotationDto> annotationDtos = dto.annotations != null ? dto.annotations
+                : dto.detail != null ? dto.detail.annotations : null;
+        e.annotationsJson = annotationDtos != null ? gson.toJson(annotationDtos) : null;
         return e;
     }
 
@@ -113,20 +119,16 @@ public class IncidentMapper {
         return out;
     }
 
-    // ---------- Entity -> DTO (for JSON column re-hydration) ----------
-
     public IncidentDto toDto(IncidentEntity e) {
         IncidentDto dto = new IncidentDto();
         dto.id = e.id;
         dto.state = e.state;
-        dto.threat = new IncidentDto.ThreatDto();
-        dto.threat.type = e.threatType;
-        dto.threat.severity = e.threatSeverity;
-        dto.threat.description = e.threatDescription;
-        dto.location = new IncidentDto.LocationDto();
-        dto.location.latitude = e.latitude;
-        dto.location.longitude = e.longitude;
-        dto.location.humanReadable = e.locationReadable;
+        dto.threatType = e.threatType;
+        dto.threatSeverity = e.threatSeverity;
+        dto.threatDescription = e.threatDescription;
+        dto.latitude = e.latitude;
+        dto.longitude = e.longitude;
+        dto.locationReadable = e.locationReadable;
         dto.nodeId = e.nodeId;
         dto.autopilotHandled = e.autopilotHandled;
         dto.createdAt = Instant.ofEpochMilli(e.createdAtEpochMs).toString();
@@ -137,18 +139,18 @@ public class IncidentMapper {
                 ? gson.fromJson(e.detectionJson, IncidentDto.DetectionDto.class) : null;
         dto.annotations = e.annotationsJson != null
                 ? gson.fromJson(e.annotationsJson,
-                        new TypeToken<List<IncidentDto.AnnotationDto>>() {}.getType())
-                : null;
+                        new TypeToken<List<IncidentDto.AnnotationDto>>() {}.getType()) : null;
         return dto;
     }
 
-    // ---------- helpers ----------
+    private static String safe(String value) { return value == null ? "" : value; }
 
     static Instant parseInstant(String iso) {
-        try {
-            return iso == null || iso.isEmpty() ? null : Instant.parse(iso);
-        } catch (Exception ex) {
-            return null;
+        if (iso == null || iso.isEmpty()) return null;
+        try { return Instant.parse(iso); }
+        catch (Exception ex) {
+            try { return java.time.OffsetDateTime.parse(iso).toInstant(); }
+            catch (Exception ignored) { return null; }
         }
     }
 
@@ -159,10 +161,7 @@ public class IncidentMapper {
 
     static <E extends Enum<E>> E safeEnum(Class<E> type, String name, E fallback) {
         if (name == null) return fallback;
-        try {
-            return Enum.valueOf(type, name);
-        } catch (IllegalArgumentException ex) {
-            return fallback;
-        }
+        try { return Enum.valueOf(type, name); }
+        catch (IllegalArgumentException ex) { return fallback; }
     }
 }
