@@ -26,9 +26,17 @@ public class AuthController {
         return ResponseEntity.ok(authService.refresh(request));
     }
 
+    /**
+     * Logout can revoke the supplied refresh token even when the access token has expired.
+     * If no refresh token is supplied, a valid access token revokes all sessions for that user.
+     */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(Authentication auth) {
-        if (auth != null) {
+    public ResponseEntity<Void> logout(
+            @RequestBody(required = false) RefreshRequest request,
+            Authentication auth) {
+        if (request != null && request.refreshToken != null && !request.refreshToken.isBlank()) {
+            authService.logoutRefreshToken(request.refreshToken);
+        } else if (auth != null) {
             authService.logout(auth.getName());
         }
         return ResponseEntity.noContent().build();
