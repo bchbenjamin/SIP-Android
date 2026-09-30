@@ -5,10 +5,10 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
-class IncidentMapperTest {
+public class IncidentMapperTest {
 
     @Test
-    void mapsFlatBackendIncidentFieldsIntoRoomEntity() {
+    public void mapsFlatBackendIncidentFieldsIntoRoomEntity() {
         IncidentDto dto = new IncidentDto();
         dto.id = "incident-1";
         dto.state = "PENDING_VERIFICATION";
@@ -39,7 +39,7 @@ class IncidentMapperTest {
     }
 
     @Test
-    void mapsLegacyNestedThreatAndLocationFields() {
+    public void mapsLegacyNestedThreatAndLocationFields() {
         IncidentDto dto = new IncidentDto();
         dto.id = "incident-legacy";
         dto.state = "DETECTED";
