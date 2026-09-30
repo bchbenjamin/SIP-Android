@@ -34,7 +34,7 @@ public class SipWebSocketClient {
     private final OkHttpClient okHttpClient;
     private final SecureTokenStore tokenStore;
     private final WebSocketMessageParser parser;
-    private final List<Listener> listeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean stopped = new AtomicBoolean(true);
     private final AtomicBoolean reconnectScheduled = new AtomicBoolean(false);
