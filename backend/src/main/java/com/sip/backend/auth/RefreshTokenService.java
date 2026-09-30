@@ -4,9 +4,9 @@ import com.sip.backend.config.JwtProperties;
 import com.sip.backend.entity.RefreshToken;
 import com.sip.backend.entity.User;
 import com.sip.backend.repository.RefreshTokenRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -25,28 +25,27 @@ public class RefreshTokenService {
         this.jwtProperties = jwtProperties;
     }
 
+    @Transactional
     public RefreshToken createForUser(User user) {
-        String tokenValue = UUID.randomUUID().toString();
-        String tokenHash = hash(tokenValue);
-
+        // Use a high-entropy opaque token. Persist only its SHA-256 hash.
+        String tokenValue = UUID.randomUUID() + "." + UUID.randomUUID();
         RefreshToken rt = new RefreshToken();
         rt.id = UUID.randomUUID().toString();
         rt.user = user;
-        rt.tokenHash = tokenHash;
+        rt.tokenHash = hash(tokenValue);
         rt.expiresAt = OffsetDateTime.now().plusSeconds(jwtProperties.getRefreshTokenExpirySeconds());
+        rt.rawToken = tokenValue;
 
         return refreshTokenRepository.save(rt);
     }
 
+    @Transactional
     public RefreshToken validateAndConsume(String tokenValue) {
-        String tokenHash = hash(tokenValue);
-        RefreshToken rt = refreshTokenRepository.findByTokenHash(tokenHash).orElse(null);
-        if (rt == null || rt.revokedAt != null || rt.isExpired()) {
-            return null;
-        }
+        if (tokenValue == null || tokenValue.isBlank()) return null;
+        RefreshToken rt = refreshTokenRepository.findByTokenHash(hash(tokenValue)).orElse(null);
+        if (rt == null || !rt.isValid()) return null;
         rt.revokedAt = OffsetDateTime.now();
-        refreshTokenRepository.save(rt);
-        return rt;
+        return refreshTokenRepository.save(rt);
     }
 
     @Transactional
@@ -57,10 +56,10 @@ public class RefreshTokenService {
     private String hash(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
+            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(bytes);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
+            throw new IllegalStateException("SHA-256 is unavailable", e);
         }
     }
 }

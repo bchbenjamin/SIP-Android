@@ -7,6 +7,7 @@ import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.Header;
 import retrofit2.http.POST;
 
 public interface AuthApiService {
@@ -15,4 +16,7 @@ public interface AuthApiService {
 
     @POST("api/v1/auth/refresh")
     Call<LoginResponse> refresh(@Body Map<String, String> body);
+
+    @POST("api/v1/auth/logout")
+    Call<Void> logout(@Header("Authorization") String authorization);
 }

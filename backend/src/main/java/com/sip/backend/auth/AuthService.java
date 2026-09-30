@@ -1,6 +1,8 @@
 package com.sip.backend.auth;
 
-import com.sip.backend.dto.*;
+import com.sip.backend.dto.LoginRequest;
+import com.sip.backend.dto.LoginResponse;
+import com.sip.backend.dto.RefreshRequest;
 import com.sip.backend.entity.User;
 import com.sip.backend.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -9,7 +11,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -35,23 +36,16 @@ public class AuthService {
             authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username, request.password));
         } catch (Exception e) {
+            // Do not disclose whether the username exists or the account is disabled.
             throw new BadCredentialsException("Invalid username or password");
         }
 
         User user = userRepository.findByUsername(request.username)
+                .filter(u -> Boolean.TRUE.equals(u.enabled))
                 .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
 
-        String accessToken = jwtService.generateAccessToken(user);
         var refreshToken = refreshTokenService.createForUser(user);
-
-        return new LoginResponse(
-                accessToken,
-                refreshToken.id,
-                jwtService.getAccessTokenExpirySeconds(),
-                user.id,
-                user.username,
-                user.role.name()
-        );
+        return response(user, refreshToken);
     }
 
     public LoginResponse refresh(RefreshRequest request) {
@@ -59,14 +53,17 @@ public class AuthService {
         if (consumed == null) {
             throw new BadCredentialsException("Refresh token is invalid or expired");
         }
-
         User user = consumed.user;
-        String accessToken = jwtService.generateAccessToken(user);
-        var newRefreshToken = refreshTokenService.createForUser(user);
+        if (user == null || !Boolean.TRUE.equals(user.enabled)) {
+            throw new BadCredentialsException("Refresh token is invalid or expired");
+        }
+        return response(user, refreshTokenService.createForUser(user));
+    }
 
+    private LoginResponse response(User user, com.sip.backend.entity.RefreshToken refreshToken) {
         return new LoginResponse(
-                accessToken,
-                newRefreshToken.id,
+                jwtService.generateAccessToken(user),
+                refreshToken.rawToken,
                 jwtService.getAccessTokenExpirySeconds(),
                 user.id,
                 user.username,

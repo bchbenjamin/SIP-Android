@@ -25,17 +25,21 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     public OffsetDateTime createdAt;
 
+    // Returned only to the issuing request; never persisted to the database.
+    @Transient
+    public String rawToken;
+
     @PrePersist
     public void prePersist() {
         createdAt = OffsetDateTime.now();
     }
 
     public boolean isExpired() {
-        return expiresAt != null && OffsetDateTime.now().isAfter(expiresAt);
+        return expiresAt == null || !OffsetDateTime.now().isBefore(expiresAt);
     }
 
     public boolean isValid() {
-        return !Boolean.TRUE.equals(revokedAt != null) && !isExpired();
+        return revokedAt == null && !isExpired();
     }
 
     public RefreshToken() {}
