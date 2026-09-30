@@ -39,4 +39,4 @@ jobs:
         env:
           JWT_SECRET: "ci-only-signing-secret-that-is-at-least-32-bytes-long"
           SPRING_PROFILES_ACTIVE: test
-        run: gradle --no-daemon clean test bootJar
+        run: ./gradlew --no-daemon clean test bootJar
