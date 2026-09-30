@@ -1,75 +1,64 @@
-# SIP Guardian — Android
+# SIP Guardian — AI-Powered Street Safety Device Network
 
-Android control and monitoring client for the **AI-Powered Street Safety Device Network** (ASIP_127 / 24UTAI13).
+This repository is a monorepo for the Android operator app and the Spring Boot backend.
 
-## Layout
+## Repository layout
 
-`
-sip-guardian/
-├── android/   # Android app — Java domain/data, Kotlin Compose UI
-├── CONTEXT/   # Project context and implementation plan
-└── docs/      # Status and integration notes
-`
+- `android/` — Android client (Java domain/data layers, Kotlin + Jetpack Compose UI).
+- `backend/` — Spring Boot REST/WebSocket API, authentication, Flyway migrations and Neon/PostgreSQL integration.
+- `CONTEXT/` — project context and the consolidated implementation plan.
+- `docs/IMPLEMENTATION_STATUS.md` — implemented capabilities, known gaps and verification status.
 
-The gateway and Raspberry Pi components are part of the overall project plan but are not contained in this repository yet.
+## Architecture
 
----
+```text
+Raspberry Pi edge nodes (local inference/autonomy)
+            │ future MQTT/HTTPS integration
+            ▼
+Spring Boot backend ─────── Neon PostgreSQL
+            ▲
+            │ HTTPS / WSS
+            ▼
+SIP Guardian Android app ── Room local cache
+```
 
-## Mock Login Credentials
+The backend is the canonical API and database boundary. Android must not connect directly to Neon, MQTT or Raspberry Pi nodes. Room is an offline cache, not the system of record. Edge autonomy must continue locally if the network or backend is unavailable.
 
-> **IMPORTANT:** The mock credentials below are **only active in DEBUG builds** (e.g. ssembleDebug). Release builds require a live gateway backend.
+## Backend setup
 
-| Username   | Password   | Role     | Notes                        |
-|------------|------------|----------|------------------------------|
-| dmin    | dmin123 | Admin    | Full access — can manage policies |
-| operator | op1234   | Operator | Can verify incidents, view dashboard |
+Requirements: JDK 17+, Gradle 8.9+, and a PostgreSQL database (Neon recommended).
 
-No backend server is required to use the app in debug mode. The mock auth layer bypasses the API and injects a local encrypted session directly into the app's token store.
+1. Copy `backend/.env.example` to a private `backend/.env` and configure `DATABASE_URL` and `JWT_SECRET`. The backend does not read a Neon management API key as a database URL.
+2. Export those environment variables in your shell (Gradle/Spring Boot does not automatically load a `.env` file).
+3. Start the backend:
 
----
+   ```bash
+   cd backend
+   ./gradlew bootRun
+   ```
 
-## Current Android Coverage
+4. Check health: `curl http://localhost:8080/actuator/health`.
 
-| Area | Status |
-|---|---|
-| Compose shell + navigation | Implemented |
-| Login + encrypted token storage | Implemented |
-| Domain models + incident state machine | Implemented |
-| Room local cache | Implemented |
-| Retrofit/OkHttp + authenticated WebSocket client | Implemented |
-| Dashboard + incident feed + filters | Implemented |
-| Incident detail + operator verification UI | Implemented |
-| Foreground WebSocket service + local notifications | Implemented |
-| Unit tests for core state/policy/WebSocket parsing | Implemented |
-| Evidence viewer / media timeline | Not yet implemented |
-| Node map | Not yet implemented |
-| Autopilot policy UI | Not yet implemented |
-| Event history | Not yet implemented |
-| Settings | Not yet implemented |
-| FCM delivery | Not yet implemented |
-| Gateway / Pi integration | Not yet implemented in this repository |
+To create the first administrator, set both `SIP_BOOTSTRAP_ADMIN_USERNAME` and `SIP_BOOTSTRAP_ADMIN_PASSWORD` before first startup. Use a unique password of at least 12 characters. There are no intended default login credentials.
 
----
+## Android setup
 
-## Configuration
+Set the API base URL when building. For an emulator, `http://10.0.2.2:8080/` reaches the host machine. For a physical phone, use the host's LAN address during development or a deployed HTTPS URL.
 
-The Android build gets its API base URL from the Gradle property or environment variable:
-
-`ash
-./gradlew assembleDebug -PSIP_API_BASE_URL=http://<gateway-host>:<port>/
-`
-
-For local development, .env.example documents the variables used by Pi/deployment tooling. The Android app does **not** read Pi SSH credentials from .env.
-
----
-
-## Build
-
-CI uses JDK 17 and Gradle 8.9:
-
-`ash
+```bash
 cd android
-gradle clean testDebugUnitTest assembleDebug
-`
+./gradlew clean testDebugUnitTest assembleDebug -PSIP_API_BASE_URL=http://10.0.2.2:8080/
+```
 
-See docs/IMPLEMENTATION_STATUS.md for the detailed state against the implementation plan.
+The debug APK is created at `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+## Security notes
+
+- Never put Neon credentials, backend secrets, Pi SSH credentials or node credentials in Android resources, BuildConfig, the APK or version control.
+- Use HTTPS/WSS outside local development.
+- Configure a strong random `JWT_SECRET`.
+- Do not expose the backend's database connection string or bootstrap administrator password in logs or issue reports.
+
+## CI
+
+Android and backend have separate GitHub Actions workflows. A green Android build alone does not establish that backend integration or live Neon connectivity works. See [implementation status](docs/IMPLEMENTATION_STATUS.md) for current limitations and outstanding integration work.

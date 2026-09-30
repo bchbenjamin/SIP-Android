@@ -3,13 +3,13 @@ spring:
     name: sip-backend
 
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sipdb}
-    username: ${DATABASE_USERNAME:sipuser}
-    password: ${DATABASE_PASSWORD:}
+    # Put the full JDBC URL (including URL-encoded user/password query parameters) in DATABASE_URL.
+    # Neon requires TLS, for example: jdbc:postgresql://HOST/DB?user=USER&password=PASSWORD&sslmode=require
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sipdb?user=sipuser}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
       connection-timeout: 20000
       idle-timeout: 300000
       max-lifetime: 1200000
@@ -21,13 +21,13 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: false
         jdbc:
           time_zone: UTC
 
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    baseline-on-migrate: false
     locations: classpath:db/migration
 
   jackson:
@@ -38,8 +38,8 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
   error:
-    include-message: always
-    include-binding-errors: always
+    include-message: never
+    include-binding-errors: never
 
 app:
   jwt:

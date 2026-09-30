@@ -1,112 +1,55 @@
 # SIP Backend
 
-Spring Boot backend for the **AI-Powered Street Safety Device Network** (24UTAI13).
+Spring Boot 3 / Java 17 backend for the AI-Powered Street Safety Device Network.
 
-Acts as the single system-of-record and control plane:
-- **Raspberry Pi** sends AI detections via MQTT
-- **Android** operators interact via REST / WebSocket
-- **Neon PostgreSQL** is the canonical data store
+The backend owns authentication, REST APIs, WebSocket event delivery, audit records, and PostgreSQL persistence. Android communicates only with this backend; Neon is never accessed directly by the APK.
 
-## Architecture
+## Requirements
 
-`
-Neon PostgreSQL  ?  Spring Boot Backend  ?  Android App
-                          ?
-                     MQTT Broker
-                          ?
-                  Raspberry Pi 5 (AI nodes)
-`
+- JDK 17+
+- Gradle 8.9+ (or the included Gradle wrapper)
+- Neon PostgreSQL or a local PostgreSQL database
 
-## Quick Start
+## Configure
 
-### Prerequisites
+Copy `.env.example` to a private `.env`, then export its values into the process environment. Spring Boot and Gradle do not automatically load a dotenv file.
 
-- Java 17+
-- Gradle 8.9+ (wrapper included)
-- Neon PostgreSQL branch or local PostgreSQL
+- `DATABASE_URL`: full PostgreSQL JDBC URL. For Neon, use the JDBC URL and TLS settings from Neon connection details; do not use a Neon management API key here.
+- `JWT_SECRET`: strong random secret (at least 32 bytes). Generate one with `openssl rand -base64 48`.
+- `SIP_BOOTSTRAP_ADMIN_USERNAME` and `SIP_BOOTSTRAP_ADMIN_PASSWORD`: optional first-admin bootstrap. Set both only for initial provisioning; password must be at least 12 characters. No default credentials are provided.
 
-### 1. Configure environment
+Example local shell:
 
-`ash
-cp .env.example .env
-# Edit .env and set:
-#   DATABASE_URL=jdbc:postgresql://<host>/<db>?sslmode=require
-#   JWT_SECRET=<at-least-32-char-random-string>
-`
-
-### 2. Run migrations
-
-Migrations run automatically on startup via Flyway.
-
-### 3. Build and run
-
-`ash
+```bash
+export DATABASE_URL='jdbc:postgresql://localhost:5432/sipdb?user=sipuser'
+export JWT_SECRET="$(openssl rand -base64 48)"
 ./gradlew bootRun
-`
+```
 
-Or build a JAR:
+Flyway migrations run at startup. Hibernate schema auto-update is disabled; schema changes must be added as new migrations.
 
-`ash
+## Useful commands
+
+```bash
+./gradlew clean test
 ./gradlew bootJar
 java -jar build/libs/sip-backend-0.1.0.jar
-`
-
-### 4. Verify
-
-`ash
 curl http://localhost:8080/actuator/health
-`
+```
 
-## Mock Login Credentials
+## API overview
 
-> For development only. Requires running backend.
+- `POST /api/v1/auth/login` — obtain access and refresh tokens.
+- `POST /api/v1/auth/refresh` — rotate a refresh token.
+- `POST /api/v1/auth/logout` — revoke refresh sessions for the authenticated user.
+- `GET /api/v1/incidents`, `GET /api/v1/incidents/{id}` — incident feed/details.
+- `POST /api/v1/incidents/{id}/verify` — record an operator annotation and lifecycle change.
+- `GET /api/v1/incidents/{id}/events` — audit events.
+- `GET /api/v1/nodes`, `GET /api/v1/nodes/{id}` — node status.
+- `GET /api/v1/dashboard` — dashboard summary.
+- `GET /api/v1/autopilot/policy?nodeId=...`, `PUT /api/v1/autopilot/policy?nodeId=...` — policy management.
+- `/ws/events` — authenticated WebSocket events (bearer access token required in handshake header).
 
-| Username   | Password     | Role     |
-|------------|-------------|----------|
-| dmin    | ChangeMe123! | Admin  |
-| operator | ChangeMe123! | Operator |
+## Known integration boundaries
 
-## API Overview
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/v1/auth/login | No | Login, returns JWT |
-| POST | /api/v1/auth/refresh | No | Refresh access token |
-| POST | /api/v1/auth/logout | Yes | Revoke refresh tokens |
-| GET | /api/v1/incidents | Yes | Paginated incident feed |
-| GET | /api/v1/incidents/{id} | Yes | Single incident with detail |
-| POST | /api/v1/incidents/{id}/verify | Yes | Verify/reject incident |
-| GET | /api/v1/incidents/{id}/events | Yes | Audit log for incident |
-| GET | /api/v1/nodes | Yes | All edge nodes |
-| GET | /api/v1/nodes/{id} | Yes | Single node |
-| GET | /api/v1/dashboard | Yes | Dashboard summary |
-| GET | /api/v1/autopilot/policy | Yes | Get autopilot policy |
-| PUT | /api/v1/autopilot/policy | Admin | Update autopilot policy |
-| GET | /api/v1/evidence/{id}/image | Yes | Evidence image |
-| GET | /api/v1/evidence/{id}/video | Yes | Evidence video |
-| WS | /ws/events | No* | Realtime events stream |
-
-*WebSocket authentication is handled via the Authorization header on the first HTTP handshake
-or the /ws/events?token=<access-token> query parameter.
-
-## Testing
-
-`ash
-./gradlew test
-`
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| DATABASE_URL | Yes | — | PostgreSQL JDBC URL |
-| DATABASE_USERNAME | No | sipuser | DB username |
-| DATABASE_PASSWORD | No | — | DB password |
-| JWT_SECRET | Yes | — | JWT signing key (min 32 chars) |
-| JWT_ACCESS_EXPIRY | No | 900 | Access token lifetime (seconds) |
-| JWT_REFRESH_EXPIRY | No | 604800 | Refresh token lifetime (seconds) |
-| SERVER_PORT | No | 8080 | HTTP server port |
-
-## Deployment
-
-See docs/DEPLOYMENT.md for full deployment instructions including Render and production setups.
+The backend currently has no complete MQTT ingestion/command bridge or Pi publisher integration. Evidence metadata endpoints are not yet a production object-storage pipeline. See `../docs/IMPLEMENTATION_STATUS.md`; do not assume those paths are production-ready.

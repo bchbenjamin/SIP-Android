@@ -1,42 +1,50 @@
-# Implementation Status
+# SIP Implementation Status
 
-Generated 2026-09-24. This file describes the current contents of this repository against the project implementation plan.
+Last reviewed: 2026-10-01.
 
-## Implemented in this repository
+This status is based on the current repository tree and GitHub Actions results. It distinguishes implemented code from integrations that have not yet been exercised against a live Neon database or Raspberry Pi.
 
-### Android
+## Android
 
-- Gradle/Compose application shell with Java domain/data layers and Kotlin Compose UI.
-- Hilt dependency injection.
-- Domain models including the incident aggregate and validated incident state transitions.
-- Separate AI detection results and human annotations.
-- Autopilot policy model and safety/escalation rules.
-- Room local cache for incidents and nodes.
-- Retrofit/OkHttp REST layer with authenticated requests and token refresh support.
-- Encrypted access/refresh token storage.
-- Authenticated WebSocket client with reconnect backoff and typed event parsing.
-- Foreground WebSocket service with Android 14+ foreground-service declarations and Android 15 timeout handling.
-- Local incident/system notifications.
-- Login, Dashboard, Incident Feed, filters, and Incident Detail verification UI.
-- Unit tests for incident state transitions, autopilot policy authorization, and WebSocket message parsing.
-- Configurable API base URL through Gradle property or `SIP_API_BASE_URL` environment variable.
-- CI workflow that runs unit tests and assembles a debug APK.
+Implemented:
+- Compose application shell, login, dashboard, incident feed, incident detail and operator verification.
+- Domain models, incident-state validation, Hilt dependency injection and Room cache.
+- Retrofit/OkHttp REST integration, encrypted token storage and refresh authenticator.
+- Authenticated WebSocket client, reconnect backoff, parser and foreground service.
+- Android DTO/mapping compatibility for both the legacy nested incident payload and the backend's flat incident DTO.
+- Unit tests for incident state transitions, autopilot policy and WebSocket parsing.
 
-## Not yet implemented
+Not yet implemented:
+- Node map, autopilot policy UI, event-history screen, settings screen, and evidence/media timeline.
+- FCM delivery when Android is killed or background WebSocket service is unavailable.
+- Production Room migrations and full Android/backend contract or end-to-end tests.
 
-- Evidence/media viewer and event timeline UI.
-- Node map UI.
-- Autopilot policy management UI.
-- Event history UI.
-- Settings UI.
-- FCM-based push delivery for process-killed/background notification delivery.
-- Gateway / Spring Boot REST + MQTT bridge.
-- Raspberry Pi publisher/subscriber/evidence-uploader components.
-- End-to-end gateway ↔ Pi ↔ Android integration tests.
-- Production Room migrations.
+## Backend
 
-## Configuration notes
+Implemented in source:
+- Spring Boot REST application, JPA entities/repositories, Flyway schema/index migrations, JWT login and refresh-token persistence.
+- Incident feed/detail and operator verification, node listing, dashboard, autopilot policy endpoints and audit records.
+- WebSocket broadcaster wired to the registered endpoint; bearer token is checked during the WebSocket handshake.
+- Optional environment-based first-admin bootstrap; fixed-password demo users are removed by a migration.
+- Separate backend CI workflow running Gradle tests and packaging the JAR.
 
-The root `.env.example` is for local/Pi deployment tooling. Its SSH credentials are not consumed by the Android app and must never be committed with real values.
+Still requires verification or implementation:
+- Live Neon provisioning/connectivity and a clean-database migration test against PostgreSQL.
+- Full WebSocket event authorization/channel subscription semantics and contract tests.
+- MQTT ingestion and command bridge, node-to-backend authentication, heartbeat ingestion and idempotent Pi incident ingestion.
+- Production evidence object storage, signed URLs, upload retries and retention enforcement.
+- User administration, password reset/recovery, rate limiting and deployment-level HTTPS/secret management.
 
-The Android app's API endpoint is supplied at build/runtime configuration time; do not hardcode device or server credentials into the APK.
+## Architecture invariants
+
+- Android talks to the backend over HTTPS/WSS only. Never connect the APK directly to Neon, MQTT or Raspberry Pi.
+- Neon/PostgreSQL is authoritative; Room is only a local cache.
+- AI predictions and human annotations remain separate.
+- Edge autonomous actions must remain local and continue during network/backend outages.
+- Never commit or print real database URLs, passwords, JWT secrets, node keys or SSH credentials.
+
+## Verification
+
+- Android CI builds and tests the debug app.
+- Backend CI builds/tests the Spring Boot service.
+- These checks do not prove live Neon connectivity, physical-device reachability, Pi integration, or production readiness. Perform those separately with private environment configuration.
