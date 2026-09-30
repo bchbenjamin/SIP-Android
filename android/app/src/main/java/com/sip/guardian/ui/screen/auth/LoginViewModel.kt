@@ -36,8 +36,10 @@ class LoginViewModel @Inject constructor(
                 _uiState.value = LoginUiState(loggedInUser = user)
             } catch (e: SecurityException) {
                 _uiState.value = LoginUiState(error = e.message ?: "Authentication failed")
+            } catch (e: IllegalStateException) {
+                _uiState.value = LoginUiState(error = e.message ?: "Backend request failed")
             } catch (e: Exception) {
-                _uiState.value = LoginUiState(error = "Network error. Check backend URL.")
+                _uiState.value = LoginUiState(error = "Unexpected login failure. Check backend logs and URL.")
             }
         }
     }
