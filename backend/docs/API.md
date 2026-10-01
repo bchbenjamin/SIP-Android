@@ -67,7 +67,7 @@ Verification request:
 
 Allowed labels: `TRUE_POSITIVE`, `FALSE_POSITIVE`, `UNCERTAIN`.
 
-The feed response uses `content`, `page`, `size`, `totalElements`, and `totalPages`. Incident DTOs currently expose canonical flat backend fields such as `threatType`, `threatSeverity`, `latitude`, `longitude`, `createdAt`, and `updatedAt`; details include nested `detail.annotations`, `detail.responseEvents`, and `detail.evidence`.
+Autopilot policy timestamps are serialized as `lastSyncTimestamp` to match the Android DTO contract. The feed response uses `content`, `page`, `size`, `totalElements`, and `totalPages`. Incident DTOs currently expose canonical flat backend fields such as `threatType`, `threatSeverity`, `latitude`, `longitude`, `createdAt`, and `updatedAt`; details include nested `detail.annotations`, `detail.responseEvents`, and `detail.evidence`.
 
 ## WebSocket event envelope
 

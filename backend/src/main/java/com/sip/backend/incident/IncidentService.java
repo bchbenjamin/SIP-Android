@@ -9,6 +9,8 @@ import com.sip.backend.realtime.WebSocketBroadcaster;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -126,9 +128,16 @@ public class IncidentService {
         auditService.log("INCIDENT_VERIFIED", incident.id, annotatorId,
             "Label: " + label + ". Notes: " + request.notes);
 
-        broadcaster.broadcastIncidentUpdated(enrichIncident(incident));
-
-        return enrichIncident(incident);
+        // Prepare the response inside the transaction, but notify clients only after commit.
+        // Otherwise a client could observe an update that later rolls back.
+        IncidentDto response = enrichIncident(incident);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                broadcaster.broadcastIncidentUpdated(response);
+            }
+        });
+        return response;
     }
 
     @Transactional(readOnly = true)

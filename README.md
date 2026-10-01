@@ -7,7 +7,7 @@ This repository is a monorepo for the Android operator app and the Spring Boot b
 - `android/` — Android client (Java domain/data layers, Kotlin + Jetpack Compose UI).
 - `backend/` — Spring Boot REST/WebSocket API, authentication, Flyway migrations and Neon/PostgreSQL integration.
 - `CONTEXT/` — project context and the consolidated implementation plan.
-- `docs/IMPLEMENTATION_STATUS.md` — implemented capabilities, known gaps and verification status.
+- `docs/IMPLEMENTATION_STATUS.md` — implemented capabilities, known gaps and verification status.\n- `docs/IMPLEMENTATION_PLAN_DELTA.md` — current monorepo decisions and implementation gaps; it supersedes conflicting repository instructions in the original plan.
 
 ## Architecture
 

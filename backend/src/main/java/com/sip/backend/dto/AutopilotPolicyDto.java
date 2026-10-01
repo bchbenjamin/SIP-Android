@@ -1,5 +1,6 @@
 package com.sip.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class AutopilotPolicyDto {
     public Boolean requireMultiModalConfirmation;
     public List<String> neverAutonomousTypes;
     public String syncState;
+    @JsonProperty("lastSyncTimestamp")
     public OffsetDateTime lastSync;
 
     public AutopilotPolicyDto() {}

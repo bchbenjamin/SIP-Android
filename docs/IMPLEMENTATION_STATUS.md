@@ -2,49 +2,65 @@
 
 Last reviewed: 2026-10-01.
 
-This status is based on the current repository tree and GitHub Actions results. It distinguishes implemented code from integrations that have not yet been exercised against a live Neon database or Raspberry Pi.
+This status reflects the current repository source and the latest GitHub Actions checks. A passing CI build is not proof of a live Neon deployment, physical-device connectivity, or Raspberry Pi integration.
+
+## Repository architecture
+
+This is a monorepo:
+- `android/` — Android client (Java domain/data/business logic; Kotlin/Compose UI).
+- `backend/` — Spring Boot 3 / Java 17 REST + WebSocket API and PostgreSQL persistence.
+- `CONTEXT/` — project context and original implementation plan.
+- `docs/IMPLEMENTATION_PLAN_DELTA.md` — authoritative delta for monorepo decisions and remaining scope.
+
+Neon/PostgreSQL is the canonical structured-data store. Android talks only to the backend; Room is a local cache. Raspberry Pi local inference and autonomous actions must continue if the backend is unreachable.
 
 ## Android
 
-Implemented:
-- Compose application shell, login, dashboard, incident feed, incident detail and operator verification.
+Implemented in source:
+- Compose shell, login, dashboard, incident feed/detail and operator verification flow.
 - Domain models, incident-state validation, Hilt dependency injection and Room cache.
 - Retrofit/OkHttp REST integration, encrypted token storage and refresh authenticator.
 - Authenticated WebSocket client, reconnect backoff, parser and foreground service.
-- Android DTO/mapping compatibility for both the legacy nested incident payload and the backend's flat incident DTO.
-- Unit tests for incident state transitions, autopilot policy and WebSocket parsing.
+- DTO/mapping compatibility for incident payloads and unit tests for state/policy/parser behavior.
 
-Not yet implemented:
-- Node map, autopilot policy UI, event-history screen, settings screen, and evidence/media timeline.
-- FCM delivery when Android is killed or background WebSocket service is unavailable.
+Outstanding:
+- Node map, autopilot policy UI, event history, settings and evidence/media timeline.
+- FCM delivery when the app is killed/backgrounded and WebSocket service is unavailable.
 - Production Room migrations and full Android/backend contract or end-to-end tests.
+- Physical-device verification against a reachable HTTPS backend.
+- Verify all UI DTOs against the live backend contract, including autopilot policy timestamps.
 
 ## Backend
 
 Implemented in source:
-- Spring Boot REST application, JPA entities/repositories, Flyway schema/index migrations, JWT login and refresh-token persistence.
-- Incident feed/detail and operator verification, node listing, dashboard, autopilot policy endpoints and audit records.
-- WebSocket broadcaster wired to the registered endpoint; bearer token is checked during the WebSocket handshake.
-- Optional environment-based first-admin bootstrap; fixed-password demo users are removed by a migration.
-- Separate backend CI workflow running Gradle tests and packaging the JAR.
+- REST application, JPA entities/repositories, Flyway migrations and PostgreSQL configuration.
+- JWT login, refresh-token persistence/rotation, logout/revocation and optional environment-based bootstrap administrator.
+- Incident feed/detail and operator verification, node reads, dashboard, autopilot policy endpoints, audit records and WebSocket broadcast.
+- Global API error format, request IDs, health endpoint and a separate backend CI workflow.
 
-Still requires verification or implementation:
-- Live Neon provisioning/connectivity and a clean-database migration test against PostgreSQL.
-- Full WebSocket event authorization/channel subscription semantics and contract tests.
-- MQTT ingestion and command bridge, node-to-backend authentication, heartbeat ingestion and idempotent Pi incident ingestion.
-- Production evidence object storage, signed URLs, upload retries and retention enforcement.
+Outstanding:
+- Live Neon provisioning/connectivity and clean-database migration test against PostgreSQL.
+- Full WebSocket authorization/channel subscription semantics and REST resynchronization contract tests.
+- MQTT ingestion/command bridge, node-to-backend authentication, heartbeat ingestion and idempotent Pi incident ingestion.
+- Evidence object storage, signed URLs, upload retries and retention enforcement.
 - User administration, password reset/recovery, rate limiting and deployment-level HTTPS/secret management.
+- Integration tests against PostgreSQL and end-to-end Android/backend tests.
 
-## Architecture invariants
+## Current audit fixes
 
-- Android talks to the backend over HTTPS/WSS only. Never connect the APK directly to Neon, MQTT or Raspberry Pi.
-- Neon/PostgreSQL is authoritative; Room is only a local cache.
-- AI predictions and human annotations remain separate.
-- Edge autonomous actions must remain local and continue during network/backend outages.
-- Never commit or print real database URLs, passwords, JWT secrets, node keys or SSH credentials.
+- Dashboard recent incidents are queried through a SQL-limited top-10 repository method rather than an unbounded query.
+- Incident-update WebSocket notification is scheduled after transaction commit.
+- Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.
+
+## Environment and secrets
+
+- Backend requires `DATABASE_URL` (a PostgreSQL JDBC connection string) and a strong `JWT_SECRET`.
+- Optional first-admin bootstrap requires both `SIP_BOOTSTRAP_ADMIN_USERNAME` and `SIP_BOOTSTRAP_ADMIN_PASSWORD`.
+- A Neon management API key is not a database connection string.
+- Never put database credentials, JWT secrets, node credentials or SSH credentials in Android resources, BuildConfig, the APK or version control.
 
 ## Verification
 
 - Android CI builds and tests the debug app.
 - Backend CI builds/tests the Spring Boot service.
-- These checks do not prove live Neon connectivity, physical-device reachability, Pi integration, or production readiness. Perform those separately with private environment configuration.
+- These checks do not prove live Neon connectivity, physical-device reachability, Pi integration or production readiness.

@@ -35,7 +35,7 @@ public class DashboardService {
                 + incidentRepository.countByState(Incident.IncidentState.PENDING_VERIFICATION)
                 + incidentRepository.countByState(Incident.IncidentState.ESCALATED);
 
-        List<Incident> recent = incidentRepository.findRecent(10);
+        List<Incident> recent = incidentRepository.findTop10ByOrderByCreatedAtDesc();
         dto.recentIncidents = recent.stream().map(incidentMapper::toDto).toList();
 
         if (dto.totalNodes == 0 || dto.onlineNodes == 0) {

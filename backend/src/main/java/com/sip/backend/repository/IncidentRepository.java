@@ -36,8 +36,8 @@ public interface IncidentRepository extends JpaRepository<Incident, String> {
         Pageable pageable
     );
 
-    @Query("SELECT i FROM Incident i ORDER BY i.createdAt DESC")
-    List<Incident> findRecent(@Param("limit") int limit);
+    /** Limits dashboard results in SQL instead of loading the full incidents table. */
+    List<Incident> findTop10ByOrderByCreatedAtDesc();
 
     long countByState(Incident.IncidentState state);
 
