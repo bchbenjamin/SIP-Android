@@ -68,10 +68,10 @@ fun SipNavGraph(
         ) {
             composable(SipNavDestination.Login.route) {
                 LoginScreen(onLoggedIn = {
-                    onAuthenticated()
                     navController.navigate(SipNavDestination.Dashboard.route) {
                         popUpTo(SipNavDestination.Login.route) { inclusive = true }
                     }
+                    onAuthenticated()
                 })
             }
             composable(SipNavDestination.Dashboard.route) {

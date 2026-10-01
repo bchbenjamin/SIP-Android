@@ -12,10 +12,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.sip.guardian.BuildConfig
 import com.sip.guardian.domain.repository.AuthRepository
+import com.sip.guardian.service.NotificationService
 import com.sip.guardian.service.WebSocketService
 import com.sip.guardian.ui.navigation.SipNavDestination
 import com.sip.guardian.ui.navigation.SipNavGraph
@@ -26,6 +30,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var authRepository: AuthRepository
+
+    private var pendingIncidentId by mutableStateOf<String?>(null)
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -48,9 +54,15 @@ class MainActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
 
-                    LaunchedEffect(authenticated) {
+                    LaunchedEffect(authenticated, pendingIncidentId) {
                         if (authenticated) {
                             requestNotificationPermissionAndStartMonitoring()
+                            pendingIncidentId?.let { id ->
+                                navController.navigate(SipNavDestination.IncidentDetail.createRoute(id)) {
+                                    launchSingleTop = true
+                                }
+                                pendingIncidentId = null
+                            }
                         }
                     }
 
@@ -59,11 +71,23 @@ class MainActivity : ComponentActivity() {
                         startDestination = start,
                         onAuthenticated = {
                             requestNotificationPermissionAndStartMonitoring()
+                            pendingIncidentId?.let { id ->
+                                navController.navigate(SipNavDestination.IncidentDetail.createRoute(id)) {
+                                    launchSingleTop = true
+                                }
+                                pendingIncidentId = null
+                            }
                         },
                     )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingIncidentId = intent.getStringExtra(NotificationService.EXTRA_INCIDENT_ID)
     }
 
     private fun requestNotificationPermissionAndStartMonitoring() {

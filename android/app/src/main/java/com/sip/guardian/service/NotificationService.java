@@ -18,6 +18,7 @@ public final class NotificationService {
 
     private static final String CHANNEL_ID = "sip_events";
     private static final String CHANNEL_ALERTS = "sip_alerts";
+    public static final String EXTRA_INCIDENT_ID = "com.sip.guardian.EXTRA_INCIDENT_ID";
     private static final AtomicInteger NEXT_ID = new AtomicInteger(100);
 
     private NotificationService() {}
@@ -27,7 +28,8 @@ public final class NotificationService {
         ensureChannels(context);
 
         Intent open = new Intent(context, MainActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(EXTRA_INCIDENT_ID, incidentId);
         PendingIntent pi = PendingIntent.getActivity(
                 context,
                 incidentId == null ? NEXT_ID.get() : incidentId.hashCode(),
