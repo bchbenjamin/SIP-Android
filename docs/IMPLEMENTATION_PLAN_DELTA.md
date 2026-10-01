@@ -47,7 +47,7 @@ Raspberry Pi edge node ── future MQTT/HTTPS ──► Spring Boot backend �
 
 - Dashboard's recent-incident query must be SQL-limited to ten rows; never fetch the entire incident table for a dashboard widget.
 - Incident-update WebSocket events must be emitted only after the database transaction commits.
-- Autopilot policy JSON must use the Android contract field `lastSyncTimestamp`.
+- Autopilot policy JSON must use the Android contract field `lastSyncTimestamp`.\n- Room schema changes must use explicit migrations (never destructive fallback), and cached incident response events must be preserved.
 
 ## Required workflow
 

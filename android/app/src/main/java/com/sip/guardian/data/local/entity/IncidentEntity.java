@@ -5,7 +5,7 @@ import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
 /**
- * Room cache of the gateway incidents subset (plan §17).
+ * Room cache of the backend incidents subset (plan §17).
  * Complex nested objects are stored as JSON columns; media is cached via Coil,
  * not Room.
  */
@@ -31,6 +31,7 @@ public class IncidentEntity {
     public String evidenceJson;
     public String detectionJson;
     public String annotationsJson;
+    public String responseEventsJson;
 
     public boolean requiresVerification() {
         return "PENDING_VERIFICATION".equals(state);

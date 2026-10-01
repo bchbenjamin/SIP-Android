@@ -2,7 +2,10 @@ package com.sip.guardian.di;
 
 import android.content.Context;
 
+import androidx.annotation.NonNull;
 import androidx.room.Room;
+import androidx.room.migration.Migration;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.sip.guardian.data.local.SipDatabase;
 import com.sip.guardian.data.local.dao.IncidentDao;
@@ -20,11 +23,18 @@ import dagger.hilt.components.SingletonComponent;
 @InstallIn(SingletonComponent.class)
 public class AppModule {
 
+    private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE incidents ADD COLUMN responseEventsJson TEXT");
+        }
+    };
+
     @Provides
     @Singleton
     SipDatabase provideDatabase(@ApplicationContext Context context) {
         return Room.databaseBuilder(context, SipDatabase.class, "sip.db")
-                .fallbackToDestructiveMigration() // prototype: acceptable; add migrations for prod
+                .addMigrations(MIGRATION_1_2)
                 .build();
     }
 

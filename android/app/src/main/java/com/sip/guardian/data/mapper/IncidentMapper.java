@@ -110,6 +110,9 @@ public class IncidentMapper {
         List<IncidentDto.AnnotationDto> annotationDtos = dto.annotations != null ? dto.annotations
                 : dto.detail != null ? dto.detail.annotations : null;
         e.annotationsJson = annotationDtos != null ? gson.toJson(annotationDtos) : null;
+        List<IncidentDto.ResponseEventDto> responseDtos = dto.responseEvents != null ? dto.responseEvents
+                : dto.detail != null ? dto.detail.responseEvents : null;
+        e.responseEventsJson = responseDtos != null ? gson.toJson(responseDtos) : null;
         return e;
     }
 
@@ -140,6 +143,9 @@ public class IncidentMapper {
         dto.annotations = e.annotationsJson != null
                 ? gson.fromJson(e.annotationsJson,
                         new TypeToken<List<IncidentDto.AnnotationDto>>() {}.getType()) : null;
+        dto.responseEvents = e.responseEventsJson != null
+                ? gson.fromJson(e.responseEventsJson,
+                        new TypeToken<List<IncidentDto.ResponseEventDto>>() {}.getType()) : null;
         return dto;
     }
 

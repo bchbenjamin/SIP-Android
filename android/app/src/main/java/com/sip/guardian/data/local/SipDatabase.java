@@ -9,7 +9,7 @@ import com.sip.guardian.data.local.entity.IncidentEntity;
 import com.sip.guardian.data.local.entity.NodeEntity;
 
 @Database(entities = {IncidentEntity.class, NodeEntity.class},
-          version = 1, exportSchema = false)
+          version = 2, exportSchema = false)
 public abstract class SipDatabase extends RoomDatabase {
     public abstract IncidentDao incidentDao();
     public abstract NodeDao nodeDao();

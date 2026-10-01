@@ -60,4 +60,29 @@ public class IncidentMapperTest {
         assertEquals(1.5, entity.latitude, 0.00001);
         assertEquals(2.5, entity.longitude, 0.00001);
     }
+
+    @Test
+    public void preservesResponseEventsAcrossRoomCacheRoundTrip() {
+        IncidentDto dto = new IncidentDto();
+        dto.id = "incident-with-response";
+        dto.state = "DETERRENCE_COMPLETED";
+        dto.responseEvents = java.util.List.of(new IncidentDto.ResponseEventDto());
+        dto.responseEvents.get(0).id = "response-1";
+        dto.responseEvents.get(0).actionType = "DETERRENCE";
+        dto.responseEvents.get(0).timestamp = "2026-10-01T00:00:00Z";
+        dto.responseEvents.get(0).result = "completed";
+        dto.responseEvents.get(0).autonomous = true;
+
+        IncidentMapper mapper = new IncidentMapper();
+        var entity = mapper.toEntity(dto);
+        IncidentDto restored = mapper.toDto(entity);
+
+        assertNotNull(entity.responseEventsJson);
+        assertNotNull(restored.responseEvents);
+        assertEquals(1, restored.responseEvents.size());
+        assertEquals("response-1", restored.responseEvents.get(0).id);
+        assertEquals("DETERRENCE", restored.responseEvents.get(0).actionType);
+        assertTrue(restored.responseEvents.get(0).autonomous);
+    }
+
 }

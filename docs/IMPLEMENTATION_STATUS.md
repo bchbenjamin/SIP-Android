@@ -26,7 +26,7 @@ Implemented in source:
 Outstanding:
 - Node map, autopilot policy UI, event history, settings and evidence/media timeline.
 - FCM delivery when the app is killed/backgrounded and WebSocket service is unavailable.
-- Production Room migrations and full Android/backend contract or end-to-end tests.
+- Full Android/backend contract or end-to-end tests.
 - Physical-device verification against a reachable HTTPS backend.
 - Verify all UI DTOs against the live backend contract, including autopilot policy timestamps.
 
@@ -50,7 +50,7 @@ Outstanding:
 
 - Dashboard recent incidents are queried through a SQL-limited top-10 repository method rather than an unbounded query.
 - Incident-update WebSocket notification is scheduled after transaction commit.
-- Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.
+- Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.\n- Room now uses an explicit v1→v2 migration instead of destructive fallback, and incident response events survive the local-cache round trip.
 
 ## Environment and secrets
 
