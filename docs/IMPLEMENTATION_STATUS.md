@@ -48,9 +48,9 @@ Outstanding:
 
 ## Current audit fixes
 
-- Dashboard recent incidents are queried through a SQL-limited top-10 repository method rather than an unbounded query.
+- Dashboard recent incidents are queried through a SQL-limited top-10 repository method rather than an unbounded query. The active-threat total includes every non-terminal incident stage, including autonomous evaluation and active deterrence.
 - Incident-update WebSocket notification is scheduled after transaction commit.
-- Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.\n- Room now uses an explicit v1→v2 migration instead of destructive fallback, and incident response events survive the local-cache round trip.
+- Autopilot policy JSON exposes `lastSyncTimestamp`, matching the Android DTO.\n- Room now uses an explicit v1→v2 migration instead of destructive fallback, and incident response events survive the local-cache round trip. Offline incident cache queries preserve filters and pagination rather than showing unrelated cached incidents.
 
 ## Environment and secrets
 
