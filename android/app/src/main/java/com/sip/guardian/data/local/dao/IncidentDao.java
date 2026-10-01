@@ -29,6 +29,16 @@ public interface IncidentDao {
     @Query("SELECT * FROM incidents WHERE id = :id")
     IncidentEntity getById(String id);
 
+    @Query("SELECT * FROM incidents " +
+            "WHERE (:state IS NULL OR state = :state) " +
+            "AND (:threatType IS NULL OR threatType = :threatType) " +
+            "AND (:nodeId IS NULL OR nodeId = :nodeId) " +
+            "AND (:fromEpochMs IS NULL OR createdAtEpochMs >= :fromEpochMs) " +
+            "AND (:toEpochMs IS NULL OR createdAtEpochMs <= :toEpochMs) " +
+            "ORDER BY createdAtEpochMs DESC LIMIT :limit OFFSET :offset")
+    List<IncidentEntity> getCachedFiltered(String state, String threatType, String nodeId,
+                                           Long fromEpochMs, Long toEpochMs, int limit, int offset);
+
     @Query("SELECT * FROM incidents ORDER BY createdAtEpochMs DESC LIMIT :limit")
     List<IncidentEntity> getRecent(int limit);
 

@@ -57,12 +57,32 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                 for (IncidentDto d : dtos) out.add(mapper.toDomain(d));
                 return out;
             }
+            if (response.code() >= 400 && response.code() < 500) {
+                throw new IllegalStateException("Incident query failed (HTTP " + response.code() + ")");
+            }
         } catch (IOException ignored) {
-            // Fall through to cache.
+            // Fall through to filtered cache.
+        }
+
+        int fallbackPage = page != null ? page : 0;
+        int fallbackSize = size != null ? size : 50;
+        if (fallbackPage < 0 || fallbackSize < 1 || fallbackSize > 100) {
+            throw new IllegalArgumentException("Invalid incident page or size");
+        }
+        long offsetLong = (long) fallbackPage * fallbackSize;
+        if (offsetLong > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Incident page offset is too large");
         }
 
         List<Incident> cached = new ArrayList<>();
-        for (var e : dao.getRecent(size != null ? size : 50)) {
+        for (var e : dao.getCachedFiltered(
+                state != null ? state.name() : null,
+                threatType != null ? threatType.name() : null,
+                nodeId,
+                from != null ? from.toEpochMilli() : null,
+                to != null ? to.toEpochMilli() : null,
+                fallbackSize,
+                (int) offsetLong)) {
             cached.add(mapper.toDomain(mapper.toDto(e)));
         }
         return cached;
@@ -76,6 +96,9 @@ public class IncidentRepositoryImpl implements IncidentRepository {
                 IncidentDto dto = response.body();
                 dao.upsert(mapper.toEntity(dto));
                 return mapper.toDomain(dto);
+            }
+            if (response.code() >= 400 && response.code() < 500) {
+                throw new IllegalStateException("Incident detail request failed (HTTP " + response.code() + ")");
             }
         } catch (IOException ignored) {
             // Fall through to cache.
