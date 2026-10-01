@@ -15,6 +15,17 @@ import java.util.List;
 @Service
 public class DashboardService {
 
+    private static final List<Incident.IncidentState> ACTIVE_STATES = List.of(
+            Incident.IncidentState.DETECTED,
+            Incident.IncidentState.EVIDENCE_CAPTURED,
+            Incident.IncidentState.PENDING_VERIFICATION,
+            Incident.IncidentState.AUTONOMOUS_EVALUATION,
+            Incident.IncidentState.VERIFIED,
+            Incident.IncidentState.AUTO_HANDLED,
+            Incident.IncidentState.DETERRENCE_ACTIVE,
+            Incident.IncidentState.ESCALATED
+    );
+
     private final NodeRepository nodeRepository;
     private final IncidentRepository incidentRepository;
     private final IncidentMapper incidentMapper;
@@ -31,9 +42,10 @@ public class DashboardService {
         DashboardDto dto = new DashboardDto();
         dto.totalNodes = nodeRepository.count();
         dto.onlineNodes = nodeRepository.countByStatus(Node.NodeStatus.ONLINE);
-        dto.activeThreats = incidentRepository.countByState(Incident.IncidentState.DETECTED)
-                + incidentRepository.countByState(Incident.IncidentState.PENDING_VERIFICATION)
-                + incidentRepository.countByState(Incident.IncidentState.ESCALATED);
+        // Count every non-terminal incident stage, including active deterrence and evaluation.
+        dto.activeThreats = ACTIVE_STATES.stream()
+                .mapToLong(incidentRepository::countByState)
+                .sum();
 
         List<Incident> recent = incidentRepository.findTop10ByOrderByCreatedAtDesc();
         dto.recentIncidents = recent.stream().map(incidentMapper::toDto).toList();
