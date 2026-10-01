@@ -26,9 +26,14 @@ public class WebSocketMessageParser {
             switch (type) {
                 case "INCIDENT_NEW":
                     return new WebSocketEvent.OnIncidentReceived(gson.fromJson(payload, IncidentDto.class));
-                case "INCIDENT_UPDATED":
+                case "INCIDENT_UPDATED": {
+                    IncidentDto incident = gson.fromJson(payload, IncidentDto.class);
+                    if (incident != null && incident.id != null) {
+                        return new WebSocketEvent.OnIncidentUpdated(incident);
+                    }
                     return new WebSocketEvent.OnIncidentUpdated(
                             first(payload, "incidentId", "id"), str(payload, "state"));
+                }
                 case "NODE_STATUS":
                 case "NODE_STATUS_CHANGED":
                     return new WebSocketEvent.OnNodeStatusChanged(

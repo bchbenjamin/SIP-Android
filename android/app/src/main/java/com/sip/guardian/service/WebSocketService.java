@@ -44,11 +44,20 @@ public class WebSocketService extends Service {
         public void onEvent(WebSocketEvent event) {
             if (event instanceof WebSocketEvent.OnIncidentReceived) {
                 WebSocketEvent.OnIncidentReceived e = (WebSocketEvent.OnIncidentReceived) event;
+                if (e.incident == null || e.incident.id == null) return;
                 incidentDao.upsert(incidentMapper.toEntity(e.incident));
+                String threatType = e.incident.threat != null ? e.incident.threat.type
+                        : e.incident.threatType != null ? e.incident.threatType : "UNKNOWN";
+                String description = e.incident.threat != null ? e.incident.threat.description
+                        : e.incident.threatDescription != null ? e.incident.threatDescription : "";
                 NotificationService.notifyNewIncident(WebSocketService.this,
-                        e.incident.id,
-                        e.incident.threat != null ? e.incident.threat.type : "UNKNOWN",
-                        e.incident.threat != null ? e.incident.threat.description : "");
+                        e.incident.id, threatType, description);
+            } else if (event instanceof WebSocketEvent.OnIncidentUpdated) {
+                WebSocketEvent.OnIncidentUpdated e = (WebSocketEvent.OnIncidentUpdated) event;
+                // The backend sends the full canonical DTO; update Room so observers see the change.
+                if (e.incident != null && e.incident.id != null) {
+                    incidentDao.upsert(incidentMapper.toEntity(e.incident));
+                }
             } else if (event instanceof WebSocketEvent.OnSystemAlert) {
                 WebSocketEvent.OnSystemAlert e = (WebSocketEvent.OnSystemAlert) event;
                 NotificationService.notifySystemAlert(WebSocketService.this,

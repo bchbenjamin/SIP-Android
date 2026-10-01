@@ -23,8 +23,17 @@ public abstract class WebSocketEvent {
     public static final class OnIncidentUpdated extends WebSocketEvent {
         public final String incidentId;
         public final String state;
+        /** Full DTO when supplied by the backend; null for legacy state-only events. */
+        public final IncidentDto incident;
         public OnIncidentUpdated(String incidentId, String state) {
-            this.incidentId = incidentId; this.state = state;
+            this.incidentId = incidentId;
+            this.state = state;
+            this.incident = null;
+        }
+        public OnIncidentUpdated(IncidentDto incident) {
+            this.incident = incident;
+            this.incidentId = incident != null ? incident.id : null;
+            this.state = incident != null ? incident.state : null;
         }
     }
 

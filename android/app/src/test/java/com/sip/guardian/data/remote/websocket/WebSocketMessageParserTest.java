@@ -23,6 +23,9 @@ public class WebSocketMessageParserTest {
         WebSocketEvent.OnIncidentUpdated updated = (WebSocketEvent.OnIncidentUpdated) event;
         assertEquals("i-2", updated.incidentId);
         assertEquals("VERIFIED", updated.state);
+        assertNotNull(updated.incident);
+        assertEquals("i-2", updated.incident.id);
+        assertEquals("VERIFIED", updated.incident.state);
     }
 
     @Test public void acceptsBackendNodeStatusEventName() {
