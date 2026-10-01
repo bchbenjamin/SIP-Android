@@ -20,7 +20,7 @@ Implemented in source:
 - Compose shell, login, dashboard, incident feed/detail and operator verification flow.
 - Domain models, incident-state validation, Hilt dependency injection and Room cache.
 - Retrofit/OkHttp REST integration, encrypted token storage and refresh authenticator.
-- Authenticated WebSocket client, reconnect backoff, parser and foreground service.
+- Authenticated WebSocket client, reconnect backoff, parser and foreground service. Full incident-update events now refresh Room; incident notifications deep-link to the matching detail screen.
 - DTO/mapping compatibility for incident payloads and unit tests for state/policy/parser behavior.
 
 Outstanding:
@@ -28,7 +28,7 @@ Outstanding:
 - FCM delivery when the app is killed/backgrounded and WebSocket service is unavailable.
 - Full Android/backend contract or end-to-end tests.
 - Physical-device verification against a reachable HTTPS backend.
-- Verify all UI DTOs against the live backend contract, including autopilot policy timestamps.
+- Full Android/backend contract tests against a live or disposable backend.
 
 ## Backend
 
