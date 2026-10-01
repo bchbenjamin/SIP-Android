@@ -54,9 +54,13 @@ class MainActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
 
-                    LaunchedEffect(authenticated, pendingIncidentId) {
+                    LaunchedEffect(authenticated) {
                         if (authenticated) {
                             requestNotificationPermissionAndStartMonitoring()
+                        }
+                    }
+                    LaunchedEffect(authenticated, pendingIncidentId) {
+                        if (authenticated) {
                             pendingIncidentId?.let { id ->
                                 navController.navigate(SipNavDestination.IncidentDetail.createRoute(id)) {
                                     launchSingleTop = true
